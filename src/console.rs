@@ -16,14 +16,14 @@ impl Console {
 
     pub fn reset(&mut self) {
         // Preserve audio buffer reference for cpal thread
-        let sample_buffer = self.bus.apu.sample_buffer.clone();
+        let audio_buffer = self.bus.apu.audio_buffer.clone();
 
         // Reset all hardware: reload cartridge resets PPU + mapper
         if let Some(cart) = self.bus.cartridge.take() {
             self.bus.load_cartridge(cart);
         }
         self.bus.apu = crate::apu::Apu::new();
-        self.bus.apu.sample_buffer = sample_buffer;
+        self.bus.apu.audio_buffer = audio_buffer;
         self.bus.joypad1 = crate::joypad::Joypad::new();
         self.bus.joypad2 = crate::joypad::Joypad::new();
         self.bus.dma_cycles = 0;

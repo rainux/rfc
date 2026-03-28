@@ -1,6 +1,5 @@
-use std::collections::VecDeque;
 use std::fs;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
@@ -136,8 +135,8 @@ fn main() {
     console.reset();
 
     // Set up audio output
-    let sample_buffer = console.bus.apu.sample_buffer.clone();
-    let audio_stream = setup_audio(sample_buffer);
+    let audio_buffer = console.bus.apu.audio_buffer.clone();
+    let audio_stream = setup_audio(audio_buffer);
 
     let event_loop = EventLoop::new().unwrap();
     let scale = config.display.scale;
@@ -156,7 +155,7 @@ fn main() {
     event_loop.run_app(&mut app).unwrap();
 }
 
-fn setup_audio(sample_buffer: Arc<Mutex<VecDeque<f32>>>) -> Option<cpal::Stream> {
+fn setup_audio(audio_buffer: Arc<rfc::audio::AudioBuffer>) -> Option<cpal::Stream> {
     let host = cpal::default_host();
     let device = match host.default_output_device() {
         Some(d) => d,
@@ -172,13 +171,20 @@ fn setup_audio(sample_buffer: Arc<Mutex<VecDeque<f32>>>) -> Option<cpal::Stream>
         buffer_size: cpal::BufferSize::Default,
     };
 
+    let mut last_sample = 0.0f32;
     let stream = device
         .build_output_stream(
             &config,
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                let mut buf = sample_buffer.lock().unwrap();
                 for sample in data.iter_mut() {
-                    *sample = buf.pop_front().unwrap_or(0.0);
+                    if let Some(s) = audio_buffer.pop() {
+                        last_sample = s;
+                        *sample = s;
+                    } else {
+                        // Fade to silence to avoid clicks on underrun
+                        last_sample *= 0.995;
+                        *sample = last_sample;
+                    }
                 }
             },
             |err| eprintln!("Audio stream error: {}", err),

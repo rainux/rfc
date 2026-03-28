@@ -1,5 +1,6 @@
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use crate::audio::AudioBuffer;
 
 const CPU_FREQUENCY: f64 = 1_789_773.0;
 const SAMPLE_RATE: f64 = 44100.0;
@@ -326,11 +327,13 @@ pub struct Apu {
 
     frame_counter: FrameCounter,
 
-    pub sample_buffer: Arc<Mutex<VecDeque<f32>>>,
+    pub audio_buffer: Arc<AudioBuffer>,
 
     cycles: u64,
     sample_period: f64,
     sample_accumulator: f64,
+
+    filter_prev: f32,
 }
 
 impl Apu {
@@ -341,10 +344,11 @@ impl Apu {
             triangle: TriangleChannel::new(),
             noise: NoiseChannel::new(),
             frame_counter: FrameCounter::new(),
-            sample_buffer: Arc::new(Mutex::new(VecDeque::new())),
+            audio_buffer: AudioBuffer::new(),
             cycles: 0,
             sample_period: CPU_FREQUENCY / SAMPLE_RATE,
             sample_accumulator: 0.0,
+            filter_prev: 0.0,
         }
     }
 
@@ -507,16 +511,28 @@ impl Apu {
         // Frame counter
         self.clock_frame_counter();
 
+        // Dynamic sample rate adjustment based on buffer fill level
+        let fill = self.audio_buffer.len();
+        let adjustment = if fill > 3000 {
+            0.98 // Speed up slightly (produce fewer samples)
+        } else if fill < 1000 {
+            1.02 // Slow down slightly (produce more samples)
+        } else {
+            1.0
+        };
+
         // Generate audio sample at sample rate
         self.sample_accumulator += 1.0;
-        if self.sample_accumulator >= self.sample_period {
-            self.sample_accumulator -= self.sample_period;
-            let sample = self.mix_output();
-            if let Ok(mut buf) = self.sample_buffer.lock() {
-                if buf.len() < 4096 {
-                    buf.push_back(sample);
-                }
-            }
+        if self.sample_accumulator >= self.sample_period * adjustment {
+            self.sample_accumulator -= self.sample_period * adjustment;
+            let raw = self.mix_output();
+
+            // First-order low-pass filter to reduce aliasing
+            const ALPHA: f32 = 0.65;
+            let filtered = ALPHA * self.filter_prev + (1.0 - ALPHA) * raw;
+            self.filter_prev = filtered;
+
+            let _ = self.audio_buffer.push(filtered);
         }
     }
 
@@ -662,7 +678,6 @@ mod tests {
             apu.step();
         }
         // With ~40.6 cycles per sample, 50 cycles should produce at least 1 sample
-        let buf = apu.sample_buffer.lock().unwrap();
-        assert!(buf.len() >= 1);
+        assert!(apu.audio_buffer.len() >= 1);
     }
 }
