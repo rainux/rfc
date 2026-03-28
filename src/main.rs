@@ -23,6 +23,7 @@ struct App {
     scale: u32,
     key_map: KeyMap,
     _audio_stream: Option<cpal::Stream>,
+    modifiers: winit::keyboard::ModifiersState,
 }
 
 impl ApplicationHandler for App {
@@ -62,9 +63,46 @@ impl ApplicationHandler for App {
                     window.request_redraw();
                 }
             }
+            WindowEvent::ModifiersChanged(mods) => {
+                self.modifiers = mods.state();
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 if let winit::keyboard::PhysicalKey::Code(key_code) = event.physical_key {
                     let pressed = event.state == winit::event::ElementState::Pressed;
+
+                    // Shortcuts (key down only)
+                    if pressed {
+                        let super_key = self.modifiers.super_key();
+                        let ctrl_key = self.modifiers.control_key();
+
+                        // Cmd+1/2/3: set screen scale
+                        if super_key && !ctrl_key {
+                            use winit::keyboard::KeyCode;
+                            let new_scale = match key_code {
+                                KeyCode::Digit1 => Some(1),
+                                KeyCode::Digit2 => Some(2),
+                                KeyCode::Digit3 => Some(3),
+                                _ => None,
+                            };
+                            if let (Some(s), Some(window)) = (new_scale, self.window.as_ref()) {
+                                self.scale = s;
+                                let _ = window.request_inner_size(
+                                    winit::dpi::PhysicalSize::new(NES_WIDTH * s, NES_HEIGHT * s),
+                                );
+                                return;
+                            }
+                        }
+
+                        // Ctrl+Cmd+R: reset console
+                        if super_key && ctrl_key
+                            && key_code == winit::keyboard::KeyCode::KeyR
+                        {
+                            self.console.reset();
+                            return;
+                        }
+                    }
+
+                    // Joypad input
                     for &(kc, button, player) in &self.key_map.mappings {
                         if kc == key_code {
                             match player {
@@ -113,6 +151,7 @@ fn main() {
         scale,
         key_map,
         _audio_stream: audio_stream,
+        modifiers: winit::keyboard::ModifiersState::empty(),
     };
 
     event_loop.run_app(&mut app).unwrap();
