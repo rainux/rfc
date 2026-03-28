@@ -1,10 +1,12 @@
+use std::collections::VecDeque;
 use std::fs;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowId};
 
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rfc::bus::Bus;
 use rfc::cartridge::Cartridge;
 use rfc::config::{Config, KeyMap};
@@ -20,6 +22,7 @@ struct App {
     window: Option<Arc<Window>>,
     scale: u32,
     key_map: KeyMap,
+    _audio_stream: Option<cpal::Stream>,
 }
 
 impl ApplicationHandler for App {
@@ -95,6 +98,10 @@ fn main() {
     let mut console = Console::new(bus);
     console.reset();
 
+    // Set up audio output
+    let sample_buffer = console.bus.apu.sample_buffer.clone();
+    let audio_stream = setup_audio(sample_buffer);
+
     let event_loop = EventLoop::new().unwrap();
     let scale = config.display.scale;
     let key_map = KeyMap::from_config(&config.input);
@@ -105,7 +112,48 @@ fn main() {
         window: None,
         scale,
         key_map,
+        _audio_stream: audio_stream,
     };
 
     event_loop.run_app(&mut app).unwrap();
+}
+
+fn setup_audio(sample_buffer: Arc<Mutex<VecDeque<f32>>>) -> Option<cpal::Stream> {
+    let host = cpal::default_host();
+    let device = match host.default_output_device() {
+        Some(d) => d,
+        None => {
+            eprintln!("Warning: No audio output device found, running without sound");
+            return None;
+        }
+    };
+
+    let config = cpal::StreamConfig {
+        channels: 1,
+        sample_rate: cpal::SampleRate(44100),
+        buffer_size: cpal::BufferSize::Default,
+    };
+
+    let stream = device
+        .build_output_stream(
+            &config,
+            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                let mut buf = sample_buffer.lock().unwrap();
+                for sample in data.iter_mut() {
+                    *sample = buf.pop_front().unwrap_or(0.0);
+                }
+            },
+            |err| eprintln!("Audio stream error: {}", err),
+            None,
+        )
+        .ok();
+
+    if let Some(ref s) = stream {
+        if let Err(e) = s.play() {
+            eprintln!("Warning: Failed to start audio stream: {}", e);
+            return None;
+        }
+    }
+
+    stream
 }

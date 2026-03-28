@@ -1,3 +1,4 @@
+use crate::apu::Apu;
 use crate::cartridge::{Cartridge, Mirroring};
 use crate::joypad::Joypad;
 use crate::ppu::Ppu;
@@ -5,6 +6,7 @@ use crate::ppu::Ppu;
 pub struct Bus {
     ram: [u8; 2048],
     pub ppu: Ppu,
+    pub apu: Apu,
     pub cartridge: Option<Cartridge>,
     pub dma_cycles: u16,
     pub joypad1: Joypad,
@@ -16,6 +18,7 @@ impl Bus {
         Self {
             ram: [0; 2048],
             ppu: Ppu::new(Mirroring::Horizontal),
+            apu: Apu::new(),
             cartridge: None,
             dma_cycles: 0,
             joypad1: Joypad::new(),
@@ -44,7 +47,8 @@ impl Bus {
                 }
             }
             // APU + I/O
-            0x4000..=0x4015 => 0, // APU stub
+            0x4000..=0x4014 => 0, // APU write-only registers
+            0x4015 => self.apu.read(addr),
             0x4016 => self.joypad1.read(),
             0x4017 => self.joypad2.read(),
             // Cartridge space
@@ -70,7 +74,7 @@ impl Bus {
                     self.ppu.write_register(ppu_addr, data, &mut NullMapper);
                 }
             }
-            0x4000..=0x4013 => {} // APU stub
+            0x4000..=0x4013 => self.apu.write(addr, data),
             0x4014 => {
                 // OAM DMA: copy 256 bytes from CPU page to PPU OAM
                 let page = (data as u16) << 8;
@@ -81,12 +85,12 @@ impl Bus {
                 }
                 self.dma_cycles = 513;
             }
-            0x4015 => {} // APU status stub
+            0x4015 => self.apu.write(addr, data),
             0x4016 => {
                 self.joypad1.write(data);
                 self.joypad2.write(data); // Same strobe signal goes to both
             }
-            0x4017 => {} // APU frame counter stub
+            0x4017 => self.apu.write(addr, data), // APU frame counter (write only; reads go to joypad2)
             0x4020..=0xFFFF => {
                 if let Some(ref mut cart) = self.cartridge {
                     cart.mapper.cpu_write(addr, data);
@@ -94,6 +98,10 @@ impl Bus {
             }
             _ => {}
         }
+    }
+
+    pub fn step_apu(&mut self) {
+        self.apu.step();
     }
 
     pub fn step_ppu(&mut self) {

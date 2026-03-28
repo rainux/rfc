@@ -38,6 +38,9 @@ impl Console {
             for _ in 0..ppu_cycles {
                 self.bus.step_ppu();
             }
+            for _ in 0..cpu_cycles {
+                self.bus.step_apu();
+            }
 
             if self.bus.poll_nmi() {
                 self.cpu.nmi(&mut self.bus);
