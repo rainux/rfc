@@ -60,6 +60,11 @@ impl Console {
                 self.cpu.nmi(&mut self.bus);
             }
 
+            if self.bus.irq_pending {
+                self.bus.irq_pending = false;
+                self.cpu.irq(&mut self.bus);
+            }
+
             if self.bus.frame_complete() {
                 break;
             }

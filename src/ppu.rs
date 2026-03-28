@@ -102,6 +102,9 @@ pub struct Ppu {
 
     // Mirroring mode
     pub mirroring: Mirroring,
+
+    // Mapper scanline notification (set at cycle 260 of rendering scanlines)
+    pub scanline_triggered: bool,
 }
 
 impl Ppu {
@@ -125,6 +128,7 @@ impl Ppu {
             nmi_pending: false,
             frame_complete: false,
             mirroring,
+            scanline_triggered: false,
         }
     }
 
@@ -317,6 +321,10 @@ impl Ppu {
                 // Increment fine/coarse Y for next scanline
                 self.increment_y();
             }
+            // Notify mapper for scanline counter (IRQ) at cycle 260
+            if self.cycle == 260 && rendering_enabled {
+                self.scanline_triggered = true;
+            }
         }
 
         // VBlank start at scanline 241, cycle 1
@@ -325,6 +333,11 @@ impl Ppu {
             if self.ctrl & 0x80 != 0 {
                 self.nmi_pending = true;
             }
+        }
+
+        // Pre-render scanline (261): also clock scanline counter
+        if self.scanline == 261 && self.cycle == 260 && rendering_enabled {
+            self.scanline_triggered = true;
         }
 
         // Pre-render scanline (261)

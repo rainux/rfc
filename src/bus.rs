@@ -11,6 +11,7 @@ pub struct Bus {
     pub dma_cycles: u16,
     pub joypad1: Joypad,
     pub joypad2: Joypad,
+    pub irq_pending: bool,
 }
 
 impl Bus {
@@ -23,6 +24,7 @@ impl Bus {
             dma_cycles: 0,
             joypad1: Joypad::new(),
             joypad2: Joypad::new(),
+            irq_pending: false,
         }
     }
 
@@ -95,6 +97,10 @@ impl Bus {
             0x4020..=0xFFFF => {
                 if let Some(ref mut cart) = self.cartridge {
                     cart.mapper.cpu_write(addr, data);
+                    // Update mirroring after mapper write (MMC3 can change it via $A000)
+                    if let Some(m) = cart.mapper.mirroring() {
+                        self.ppu.mirroring = m;
+                    }
                 }
             }
             _ => {}
@@ -108,6 +114,19 @@ impl Bus {
     pub fn step_ppu(&mut self) {
         if let Some(ref cart) = self.cartridge {
             self.ppu.step(cart.mapper.as_ref());
+        }
+        if self.ppu.scanline_triggered {
+            self.ppu.scanline_triggered = false;
+            if let Some(ref mut cart) = self.cartridge {
+                cart.mapper.notify_scanline();
+                // Update mirroring (MMC3 can change it dynamically)
+                if let Some(m) = cart.mapper.mirroring() {
+                    self.ppu.mirroring = m;
+                }
+                if cart.mapper.irq_pending() {
+                    self.irq_pending = true;
+                }
+            }
         }
     }
 

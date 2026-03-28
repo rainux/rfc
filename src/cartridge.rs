@@ -1,6 +1,7 @@
 use crate::mapper::Mapper;
 use crate::mapper::mapper0::Mapper0;
 use crate::mapper::mapper2::Mapper2;
+use crate::mapper::mapper4::Mapper4;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Mirroring {
@@ -54,6 +55,7 @@ impl Cartridge {
             0 => Box::new(Mapper0::new(prg_rom, chr_rom)),
             2 => Box::new(Mapper2::new(prg_rom, chr_rom)),
             3 => Box::new(crate::mapper::mapper3::Mapper3::new(prg_rom, chr_rom)),
+            4 => Box::new(Mapper4::new(prg_rom, chr_rom, mirroring)),
             _ => return Err(format!("Unsupported mapper: {}", mapper_number)),
         };
 
