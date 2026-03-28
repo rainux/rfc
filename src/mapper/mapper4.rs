@@ -37,7 +37,7 @@ impl Mapper4 {
         let chr_size = chr_rom.len();
         let chr_banks = if chr_size > 0 { chr_size / 1024 } else { 0 };
         let chr = if chr_rom.is_empty() {
-            vec![0u8; 256 * 1024] // CHR RAM (256KB max)
+            vec![0u8; 8192] // CHR RAM (8KB)
         } else {
             chr_rom
         };
@@ -169,6 +169,11 @@ impl Mapper for Mapper4 {
             return 0;
         }
 
+        // CHR RAM: direct mapping, no bank switching
+        if self.chr_banks == 0 {
+            return self.chr_rom[addr as usize & 0x1FFF];
+        }
+
         let bank = if !self.chr_inversion {
             match addr {
                 0x0000..=0x03FF => {
@@ -255,86 +260,13 @@ impl Mapper for Mapper4 {
             return;
         }
 
-        // Only writable if CHR RAM (no CHR ROM banks means CHR RAM)
+        // Only writable if CHR RAM
         if self.chr_banks == 0 {
-            let offset = if !self.chr_inversion {
-                match addr {
-                    0x0000..=0x03FF => {
-                        self.chr_bank_offset(self.bank_registers[0] as usize & 0xFE, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x0400..=0x07FF => {
-                        self.chr_bank_offset((self.bank_registers[0] as usize & 0xFE) + 1, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x0800..=0x0BFF => {
-                        self.chr_bank_offset(self.bank_registers[1] as usize & 0xFE, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x0C00..=0x0FFF => {
-                        self.chr_bank_offset((self.bank_registers[1] as usize & 0xFE) + 1, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x1000..=0x13FF => {
-                        self.chr_bank_offset(self.bank_registers[2] as usize, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x1400..=0x17FF => {
-                        self.chr_bank_offset(self.bank_registers[3] as usize, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x1800..=0x1BFF => {
-                        self.chr_bank_offset(self.bank_registers[4] as usize, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x1C00..=0x1FFF => {
-                        self.chr_bank_offset(self.bank_registers[5] as usize, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    _ => return,
-                }
-            } else {
-                match addr {
-                    0x0000..=0x03FF => {
-                        self.chr_bank_offset(self.bank_registers[2] as usize, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x0400..=0x07FF => {
-                        self.chr_bank_offset(self.bank_registers[3] as usize, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x0800..=0x0BFF => {
-                        self.chr_bank_offset(self.bank_registers[4] as usize, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x0C00..=0x0FFF => {
-                        self.chr_bank_offset(self.bank_registers[5] as usize, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x1000..=0x13FF => {
-                        self.chr_bank_offset(self.bank_registers[0] as usize & 0xFE, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x1400..=0x17FF => {
-                        self.chr_bank_offset((self.bank_registers[0] as usize & 0xFE) + 1, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x1800..=0x1BFF => {
-                        self.chr_bank_offset(self.bank_registers[1] as usize & 0xFE, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    0x1C00..=0x1FFF => {
-                        self.chr_bank_offset((self.bank_registers[1] as usize & 0xFE) + 1, 1024)
-                            + (addr as usize & 0x3FF)
-                    }
-                    _ => return,
-                }
-            };
-
-            if offset < self.chr_rom.len() {
-                self.chr_rom[offset] = data;
-            }
+            self.chr_rom[addr as usize & 0x1FFF] = data;
+            return;
         }
+
+        // CHR ROM is read-only — ignore writes
     }
 
     fn notify_scanline(&mut self) {
