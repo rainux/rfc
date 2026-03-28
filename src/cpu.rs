@@ -1,5 +1,22 @@
 use crate::bus::Bus;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AddressingMode {
+    Implicit,
+    Accumulator,
+    Immediate,
+    ZeroPage,
+    ZeroPageX,
+    ZeroPageY,
+    Relative,
+    Absolute,
+    AbsoluteX,
+    AbsoluteY,
+    Indirect,
+    IndirectX,
+    IndirectY,
+}
+
 /// Status register flag bits
 const CARRY: u8 = 0b0000_0001;
 const ZERO: u8 = 0b0000_0010;
@@ -88,11 +105,184 @@ impl Cpu {
         let hi = self.pull(bus) as u16;
         (hi << 8) | lo
     }
+
+    /// Read a byte at PC and advance PC
+    fn fetch(&mut self, bus: &mut Bus) -> u8 {
+        let data = bus.read(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        data
+    }
+
+    /// Read a 16-bit word at PC (little-endian) and advance PC by 2
+    fn fetch16(&mut self, bus: &mut Bus) -> u16 {
+        let lo = self.fetch(bus) as u16;
+        let hi = self.fetch(bus) as u16;
+        (hi << 8) | lo
+    }
+
+    /// Read a 16-bit word from addr, handling the 6502 page-boundary bug
+    /// (indirect JMP bug: if addr is $xxFF, high byte wraps within the page)
+    fn read16_wrap(&self, bus: &mut Bus, addr: u16) -> u16 {
+        let lo = bus.read(addr) as u16;
+        let hi_addr = (addr & 0xFF00) | ((addr.wrapping_add(1)) & 0x00FF);
+        let hi = bus.read(hi_addr) as u16;
+        (hi << 8) | lo
+    }
+
+    /// Resolve addressing mode to (effective_address, page_crossed)
+    fn resolve_address(&mut self, bus: &mut Bus, mode: AddressingMode) -> (u16, bool) {
+        match mode {
+            AddressingMode::Implicit | AddressingMode::Accumulator => (0, false),
+
+            AddressingMode::Immediate => {
+                let addr = self.pc;
+                self.pc = self.pc.wrapping_add(1);
+                (addr, false)
+            }
+
+            AddressingMode::ZeroPage => {
+                let addr = self.fetch(bus) as u16;
+                (addr, false)
+            }
+
+            AddressingMode::ZeroPageX => {
+                let base = self.fetch(bus);
+                (base.wrapping_add(self.x) as u16, false)
+            }
+
+            AddressingMode::ZeroPageY => {
+                let base = self.fetch(bus);
+                (base.wrapping_add(self.y) as u16, false)
+            }
+
+            AddressingMode::Relative => {
+                let offset = self.fetch(bus) as i8;
+                let addr = self.pc.wrapping_add(offset as u16);
+                (addr, false)
+            }
+
+            AddressingMode::Absolute => {
+                let addr = self.fetch16(bus);
+                (addr, false)
+            }
+
+            AddressingMode::AbsoluteX => {
+                let base = self.fetch16(bus);
+                let addr = base.wrapping_add(self.x as u16);
+                let page_crossed = (base & 0xFF00) != (addr & 0xFF00);
+                (addr, page_crossed)
+            }
+
+            AddressingMode::AbsoluteY => {
+                let base = self.fetch16(bus);
+                let addr = base.wrapping_add(self.y as u16);
+                let page_crossed = (base & 0xFF00) != (addr & 0xFF00);
+                (addr, page_crossed)
+            }
+
+            AddressingMode::Indirect => {
+                let ptr = self.fetch16(bus);
+                let addr = self.read16_wrap(bus, ptr);
+                (addr, false)
+            }
+
+            AddressingMode::IndirectX => {
+                let base = self.fetch(bus);
+                let ptr = base.wrapping_add(self.x);
+                let lo = bus.read(ptr as u16) as u16;
+                let hi = bus.read(ptr.wrapping_add(1) as u16) as u16;
+                ((hi << 8) | lo, false)
+            }
+
+            AddressingMode::IndirectY => {
+                let ptr = self.fetch(bus);
+                let lo = bus.read(ptr as u16) as u16;
+                let hi = bus.read(ptr.wrapping_add(1) as u16) as u16;
+                let base = (hi << 8) | lo;
+                let addr = base.wrapping_add(self.y as u16);
+                let page_crossed = (base & 0xFF00) != (addr & 0xFF00);
+                (addr, page_crossed)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn setup_cpu_with_ram(bytes: &[(u16, u8)]) -> (Cpu, Bus) {
+        let cpu = Cpu::new();
+        let mut bus = Bus::new();
+        for &(addr, val) in bytes {
+            bus.write(addr, val);
+        }
+        (cpu, bus)
+    }
+
+    #[test]
+    fn test_immediate() {
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0x42)]);
+        cpu.pc = 0x0000;
+        let (addr, _) = cpu.resolve_address(&mut bus, AddressingMode::Immediate);
+        assert_eq!(addr, 0x0000);
+        assert_eq!(bus.read(addr), 0x42);
+        assert_eq!(cpu.pc, 0x0001);
+    }
+
+    #[test]
+    fn test_zero_page() {
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0x10), (0x0010, 0xAB)]);
+        cpu.pc = 0x0000;
+        let (addr, _) = cpu.resolve_address(&mut bus, AddressingMode::ZeroPage);
+        assert_eq!(addr, 0x0010);
+        assert_eq!(bus.read(addr), 0xAB);
+    }
+
+    #[test]
+    fn test_zero_page_x_wraps() {
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0xFF), (0x0004, 0xBB)]);
+        cpu.pc = 0x0000;
+        cpu.x = 0x05;
+        let (addr, _) = cpu.resolve_address(&mut bus, AddressingMode::ZeroPageX);
+        assert_eq!(addr, 0x0004);
+    }
+
+    #[test]
+    fn test_absolute_x_page_cross() {
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0xFF), (0x0001, 0x00)]);
+        cpu.pc = 0x0000;
+        cpu.x = 0x01;
+        let (addr, page_crossed) = cpu.resolve_address(&mut bus, AddressingMode::AbsoluteX);
+        assert_eq!(addr, 0x0100);
+        assert!(page_crossed);
+    }
+
+    #[test]
+    fn test_indirect_y() {
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
+            (0x0000, 0x10),
+            (0x0010, 0x00),
+            (0x0011, 0x03),
+        ]);
+        cpu.pc = 0x0000;
+        cpu.y = 0x05;
+        let (addr, _) = cpu.resolve_address(&mut bus, AddressingMode::IndirectY);
+        assert_eq!(addr, 0x0305);
+    }
+
+    #[test]
+    fn test_indirect_x() {
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
+            (0x0000, 0x20),
+            (0x0024, 0x00),
+            (0x0025, 0x03),
+        ]);
+        cpu.pc = 0x0000;
+        cpu.x = 0x04;
+        let (addr, _) = cpu.resolve_address(&mut bus, AddressingMode::IndirectX);
+        assert_eq!(addr, 0x0300);
+    }
 
     #[test]
     fn test_cpu_new() {
