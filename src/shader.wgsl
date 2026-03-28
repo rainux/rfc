@@ -79,25 +79,7 @@ fn smooth_effect(uv: vec2f) -> vec4f {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-    let window_aspect = globals.window_size.x / globals.window_size.y;
-    let nes_aspect = 256.0 / 240.0;
-
-    var uv = in.uv;
-
-    if window_aspect > nes_aspect {
-        // Window is wider — pillarbox (black bars on left/right)
-        let scale = nes_aspect / window_aspect;
-        uv.x = (uv.x - 0.5) / scale + 0.5;
-    } else {
-        // Window is taller — letterbox (black bars on top/bottom)
-        let scale = window_aspect / nes_aspect;
-        uv.y = (uv.y - 0.5) / scale + 0.5;
-    }
-
-    // If UV is outside [0,1], render black
-    if uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 {
-        return vec4f(0.0, 0.0, 0.0, 1.0);
-    }
+    let uv = in.uv;
 
     switch globals.shader_mode {
         case 1u: { return crt_effect(uv); }

@@ -106,7 +106,26 @@ impl ApplicationHandler for App {
             }
             WindowEvent::Resized(physical_size) => {
                 if let Some(renderer) = self.renderer.as_mut() {
-                    renderer.resize(physical_size);
+                    // Maintain 16:15 aspect ratio (256:240)
+                    let aspect = 256.0 / 240.0_f64;
+                    let w = physical_size.width as f64;
+                    let h = physical_size.height as f64;
+
+                    let (new_w, new_h) = if w / h > aspect {
+                        // Too wide — shrink width to match height
+                        ((h * aspect).round() as u32, physical_size.height)
+                    } else {
+                        // Too tall — shrink height to match width
+                        (physical_size.width, (w / aspect).round() as u32)
+                    };
+
+                    let constrained = winit::dpi::PhysicalSize::new(new_w, new_h);
+                    if constrained != physical_size {
+                        if let Some(window) = self.window.as_ref() {
+                            let _ = window.request_inner_size(constrained);
+                        }
+                    }
+                    renderer.resize(constrained);
                 }
             }
             WindowEvent::RedrawRequested => {
