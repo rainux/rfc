@@ -1,5 +1,6 @@
 use std::fs;
-use std::path::PathBuf;
+use std::io::Read as _;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
@@ -50,7 +51,7 @@ struct App {
 
 impl App {
     fn launch_rom(&mut self, path: &PathBuf) {
-        let rom_data = match fs::read(path) {
+        let rom_data = match load_rom_data(path) {
             Ok(d) => d,
             Err(e) => {
                 eprintln!("Failed to read ROM {}: {}", path.display(), e);
@@ -449,7 +450,7 @@ fn main() {
     // Determine initial state
     let initial_state = if let Some(ref path) = rom_arg {
         // Direct ROM launch — skip menu
-        let rom_data = fs::read(path).expect("Failed to read ROM");
+        let rom_data = load_rom_data(Path::new(path)).expect("Failed to read ROM");
         let cartridge = Cartridge::from_ines(&rom_data).expect("Failed to parse ROM");
         let mut bus = Bus::new();
         bus.load_cartridge(cartridge);
@@ -531,4 +532,30 @@ fn setup_audio(audio_buffer: Arc<rfc::audio::AudioBuffer>) -> Option<cpal::Strea
     }
 
     stream
+}
+
+/// Load ROM data from a .nes file or extract the first .nes from a .zip archive.
+fn load_rom_data(path: &Path) -> Result<Vec<u8>, String> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if ext == "zip" {
+        let file = fs::File::open(path).map_err(|e| format!("{}", e))?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Invalid zip: {}", e))?;
+
+        for i in 0..archive.len() {
+            let mut entry = archive.by_index(i).map_err(|e| format!("{}", e))?;
+            if entry.name().to_lowercase().ends_with(".nes") {
+                let mut data = Vec::new();
+                entry.read_to_end(&mut data).map_err(|e| format!("{}", e))?;
+                return Ok(data);
+            }
+        }
+        Err("No .nes file found in zip archive".into())
+    } else {
+        fs::read(path).map_err(|e| format!("{}", e))
+    }
 }

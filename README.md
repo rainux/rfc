@@ -22,7 +22,8 @@ Subsequent features (Mapper 1/3/4, egui game browser, display shaders, turbo but
 - **Mappers**: 0 (NROM), 1 (MMC1), 2 (UxROM), 3 (CNROM), 4 (MMC3) — covers ~85% of NES games
 - **Input**: Configurable keyboard mapping with turbo (auto-fire) A/B buttons
 - **Display shaders**: None (pixel-perfect), CRT (scanlines + vignette), Smooth (bilinear), Scanline (pure)
-- **Game selection**: egui-based ROM browser with directory navigation and Chinese filename support
+- **Game selection**: egui-based ROM browser with directory navigation and CJK filename support
+- **ROM formats**: Direct `.nes` files and `.zip` archives (auto-extracts first `.nes` inside)
 - **Rendering**: Pure Rust graphics stack (winit + wgpu), aspect ratio locked to 16:15
 - **Configurable**: All settings via `rfc.toml` — keys, hotkeys, display scale, shaders
 

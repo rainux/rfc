@@ -15,6 +15,7 @@ bytemuck = { version = "1", features = ["derive"] }
 egui = "0.31"
 egui-wgpu = "0.31"
 egui-winit = "0.31"
+zip = "2"
 log = "0.4"
 env_logger = "0.11"
 

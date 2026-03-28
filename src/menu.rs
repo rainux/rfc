@@ -34,7 +34,10 @@ pub fn scan_dir(dir: &PathBuf) -> Vec<FsEntry> {
                 if !name.starts_with('.') {
                     dirs.push(FsEntry::Dir { name, path: p });
                 }
-            } else if p.extension().is_some_and(|e| e.eq_ignore_ascii_case("nes")) {
+            } else if p
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("nes") || e.eq_ignore_ascii_case("zip"))
+            {
                 let name = p
                     .file_stem()
                     .map(|s| s.to_string_lossy().into_owned())
