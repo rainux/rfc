@@ -178,8 +178,9 @@ impl ApplicationHandler for App {
                             });
                         }
                         // Check if a ROM should be launched (set by egui keyboard/click)
-                        if let EmulatorState::Menu(menu) = &self.state {
+                        if let EmulatorState::Menu(menu) = &mut self.state {
                             if menu.should_launch {
+                                menu.should_launch = false;
                                 if let Some(entry) = menu.selected_rom().cloned() {
                                     self.launch_rom(&entry.path);
                                 }
