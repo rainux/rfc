@@ -334,6 +334,10 @@ impl Ppu {
                 self.status &= !0xE0;
                 self.nmi_pending = false;
             }
+            if self.cycle == 257 && rendering_enabled {
+                // Copy horizontal position bits from t to v (same as visible scanlines)
+                self.v = (self.v & !0x041F) | (self.t & 0x041F);
+            }
             // Copy vertical bits from t to v during cycles 280-304
             if self.cycle >= 280 && self.cycle <= 304 && rendering_enabled {
                 self.v = (self.v & !0x7BE0) | (self.t & 0x7BE0);
