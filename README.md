@@ -19,7 +19,7 @@ The result is a working NES emulator with instruction-level accuracy. Basic grap
 - **CPU**: Full 6502 instruction set (151 official opcodes), verified against nestest (5003 lines pass)
 - **PPU**: Scanline-based rendering with background tiles, sprites, scrolling, and sprite-0 hit detection
 - **APU**: Pulse, triangle, and noise channels with audio output via cpal
-- **Mappers**: Mapper 0 (NROM), Mapper 1 (MMC1), and Mapper 2 (UxROM)
+- **Mappers**: Mapper 0 (NROM), 1 (MMC1), 2 (UxROM), 3 (CNROM), 4 (MMC3)
 - **Input**: Configurable keyboard mapping via TOML config file, with turbo (auto-fire) buttons
 - **Rendering**: Pure Rust graphics stack (winit + wgpu), no SDL dependency
 - **Game Selection**: egui-based menu with Unicode/Chinese filename support
