@@ -1,0 +1,60 @@
+# rfc (Rainux's FC) — Sample Configuration
+#
+# Copy this file to rfc.toml and customize as needed.
+# All values shown below are the defaults.
+# Config is loaded from: ./rfc.toml > ~/.config/rfc/rfc.toml > built-in defaults
+
+[display]
+# Window scale multiplier (base resolution: 256x240)
+scale = 3
+# Display shader effect
+# Options: "none" (pixel-perfect), "crt" (scanlines + vignette), "smooth" (bilinear), "scanline" (pure scanlines)
+shader = "none"
+
+[rom]
+# Directory to scan for .nes ROM files (shown in game selection screen)
+path = "./roms"
+
+[input]
+# Turbo auto-fire rate: toggle button every N frames
+# Lower = faster. 2 = ~15 presses/sec, 3 = ~10 presses/sec
+turbo_rate = 2
+
+[input.player1]
+up = "E"
+down = "D"
+left = "S"
+right = "F"
+a = "K"
+b = "J"
+turbo_a = "I"        # Hold to auto-fire A button
+turbo_b = "U"        # Hold to auto-fire B button
+select = "G"
+start = "H"
+
+[input.player2]
+up = "Up"
+down = "Down"
+left = "Left"
+right = "Right"
+a = "Numpad2"
+b = "Numpad1"
+turbo_a = "Numpad4"
+turbo_b = "Numpad3"
+select = "Numpad5"
+start = "Numpad6"
+
+[hotkeys]
+# Hotkey format: "Modifier+Key" where modifiers are Ctrl, Super (Cmd), Shift, Alt (Option)
+# Examples: "Super+1", "Ctrl+Super+R", "Shift+F5"
+scale_1 = "Super+1"        # Set window scale to 2x
+scale_2 = "Super+2"        # Set window scale to 4x
+scale_3 = "Super+3"        # Set window scale to 6x
+reset = "Ctrl+Super+R"     # Reset console (restart current game)
+
+# Available key names:
+# Letters: A-Z
+# Digits: 0-9
+# Arrows: Up, Down, Left, Right
+# Special: Enter, Space, Escape, Tab, LShift, RShift
+# Numpad: Numpad0-Numpad9
