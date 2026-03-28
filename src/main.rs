@@ -5,9 +5,12 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowId};
 
+use winit::keyboard::KeyCode;
+
 use rfc::bus::Bus;
 use rfc::cartridge::Cartridge;
 use rfc::console::Console;
+use rfc::joypad;
 use rfc::renderer::Renderer;
 
 const NES_WIDTH: u32 = 256;
@@ -55,6 +58,25 @@ impl ApplicationHandler for App {
                 }
                 if let Some(window) = self.window.as_ref() {
                     window.request_redraw();
+                }
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                if let winit::keyboard::PhysicalKey::Code(key_code) = event.physical_key {
+                    let pressed = event.state == winit::event::ElementState::Pressed;
+                    let button = match key_code {
+                        KeyCode::KeyE => Some(joypad::Button::Up),
+                        KeyCode::KeyD => Some(joypad::Button::Down),
+                        KeyCode::KeyS => Some(joypad::Button::Left),
+                        KeyCode::KeyF => Some(joypad::Button::Right),
+                        KeyCode::KeyK => Some(joypad::Button::A),
+                        KeyCode::KeyJ => Some(joypad::Button::B),
+                        KeyCode::KeyG => Some(joypad::Button::Select),
+                        KeyCode::KeyH => Some(joypad::Button::Start),
+                        _ => None,
+                    };
+                    if let Some(btn) = button {
+                        self.console.bus.joypad1.set_button(btn, pressed);
+                    }
                 }
             }
             _ => {}
