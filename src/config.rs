@@ -4,12 +4,96 @@ use winit::keyboard::KeyCode;
 
 use crate::joypad::Button;
 
+#[derive(Deserialize, Clone)]
+#[serde(default)]
+pub struct HotkeyConfig {
+    pub scale_1: String,
+    pub scale_2: String,
+    pub scale_3: String,
+    pub reset: String,
+}
+
+impl Default for HotkeyConfig {
+    fn default() -> Self {
+        Self {
+            scale_1: "Super+1".into(),
+            scale_2: "Super+2".into(),
+            scale_3: "Super+3".into(),
+            reset: "Ctrl+Super+R".into(),
+        }
+    }
+}
+
+pub struct Hotkey {
+    pub key: KeyCode,
+    pub ctrl: bool,
+    pub super_key: bool,
+    pub shift: bool,
+    pub alt: bool,
+}
+
+impl Hotkey {
+    pub fn parse(s: &str) -> Option<Self> {
+        let parts: Vec<&str> = s.split('+').collect();
+        let mut ctrl = false;
+        let mut super_key = false;
+        let mut shift = false;
+        let mut alt = false;
+        let mut key = None;
+
+        for part in &parts {
+            match part.trim() {
+                "Ctrl" => ctrl = true,
+                "Super" | "Cmd" => super_key = true,
+                "Shift" => shift = true,
+                "Alt" | "Option" => alt = true,
+                k => key = key_name_to_keycode(k),
+            }
+        }
+
+        key.map(|k| Hotkey {
+            key: k,
+            ctrl,
+            super_key,
+            shift,
+            alt,
+        })
+    }
+
+    pub fn matches(&self, key_code: KeyCode, modifiers: &winit::keyboard::ModifiersState) -> bool {
+        self.key == key_code
+            && self.ctrl == modifiers.control_key()
+            && self.super_key == modifiers.super_key()
+            && self.shift == modifiers.shift_key()
+            && self.alt == modifiers.alt_key()
+    }
+}
+
+pub struct HotkeyMap {
+    pub scale_1: Option<Hotkey>,
+    pub scale_2: Option<Hotkey>,
+    pub scale_3: Option<Hotkey>,
+    pub reset: Option<Hotkey>,
+}
+
+impl HotkeyMap {
+    pub fn from_config(config: &HotkeyConfig) -> Self {
+        Self {
+            scale_1: Hotkey::parse(&config.scale_1),
+            scale_2: Hotkey::parse(&config.scale_2),
+            scale_3: Hotkey::parse(&config.scale_3),
+            reset: Hotkey::parse(&config.reset),
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub display: DisplayConfig,
     pub rom: RomConfig,
     pub input: InputConfig,
+    pub hotkeys: HotkeyConfig,
 }
 
 #[derive(Deserialize)]
@@ -50,6 +134,7 @@ impl Default for Config {
             display: DisplayConfig::default(),
             rom: RomConfig::default(),
             input: InputConfig::default(),
+            hotkeys: HotkeyConfig::default(),
         }
     }
 }
@@ -170,6 +255,17 @@ pub fn key_name_to_keycode(name: &str) -> Option<KeyCode> {
         "X" => Some(KeyCode::KeyX),
         "Y" => Some(KeyCode::KeyY),
         "Z" => Some(KeyCode::KeyZ),
+        // Digit row
+        "1" => Some(KeyCode::Digit1),
+        "2" => Some(KeyCode::Digit2),
+        "3" => Some(KeyCode::Digit3),
+        "4" => Some(KeyCode::Digit4),
+        "5" => Some(KeyCode::Digit5),
+        "6" => Some(KeyCode::Digit6),
+        "7" => Some(KeyCode::Digit7),
+        "8" => Some(KeyCode::Digit8),
+        "9" => Some(KeyCode::Digit9),
+        "0" => Some(KeyCode::Digit0),
         // Arrow keys
         "Up" => Some(KeyCode::ArrowUp),
         "Down" => Some(KeyCode::ArrowDown),

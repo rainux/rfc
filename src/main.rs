@@ -8,7 +8,7 @@ use winit::window::{Window, WindowId};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rfc::bus::Bus;
 use rfc::cartridge::Cartridge;
-use rfc::config::{Config, KeyMap};
+use rfc::config::{Config, HotkeyMap, KeyMap};
 use rfc::console::Console;
 use rfc::renderer::Renderer;
 
@@ -21,6 +21,7 @@ struct App {
     window: Option<Arc<Window>>,
     scale: u32,
     key_map: KeyMap,
+    hotkey_map: HotkeyMap,
     _audio_stream: Option<cpal::Stream>,
     modifiers: winit::keyboard::ModifiersState,
 }
@@ -71,32 +72,35 @@ impl ApplicationHandler for App {
 
                     // Shortcuts (key down only)
                     if pressed {
-                        let super_key = self.modifiers.super_key();
-                        let ctrl_key = self.modifiers.control_key();
-
-                        // Cmd+1/2/3: set screen scale
-                        if super_key && !ctrl_key {
-                            use winit::keyboard::KeyCode;
-                            let new_scale = match key_code {
-                                KeyCode::Digit1 => Some(1),
-                                KeyCode::Digit2 => Some(2),
-                                KeyCode::Digit3 => Some(3),
-                                _ => None,
-                            };
-                            if let (Some(s), Some(window)) = (new_scale, self.window.as_ref()) {
-                                self.scale = s;
-                                let _ = window.request_inner_size(winit::dpi::PhysicalSize::new(
-                                    NES_WIDTH * s,
-                                    NES_HEIGHT * s,
-                                ));
-                                return;
+                        // Scale hotkeys
+                        let scales = [
+                            (&self.hotkey_map.scale_1, 1u32),
+                            (&self.hotkey_map.scale_2, 2),
+                            (&self.hotkey_map.scale_3, 3),
+                        ];
+                        for (hotkey, scale) in &scales {
+                            if let Some(hk) = hotkey {
+                                if hk.matches(key_code, &self.modifiers) {
+                                    if let Some(window) = self.window.as_ref() {
+                                        self.scale = *scale;
+                                        let _ = window.request_inner_size(
+                                            winit::dpi::PhysicalSize::new(
+                                                NES_WIDTH * scale,
+                                                NES_HEIGHT * scale,
+                                            ),
+                                        );
+                                    }
+                                    return;
+                                }
                             }
                         }
 
-                        // Ctrl+Cmd+R: reset console
-                        if super_key && ctrl_key && key_code == winit::keyboard::KeyCode::KeyR {
-                            self.console.reset();
-                            return;
+                        // Reset hotkey
+                        if let Some(ref hk) = self.hotkey_map.reset {
+                            if hk.matches(key_code, &self.modifiers) {
+                                self.console.reset();
+                                return;
+                            }
                         }
                     }
 
@@ -141,6 +145,7 @@ fn main() {
     let event_loop = EventLoop::new().unwrap();
     let scale = config.display.scale;
     let key_map = KeyMap::from_config(&config.input);
+    let hotkey_map = HotkeyMap::from_config(&config.hotkeys);
 
     let mut app = App {
         console,
@@ -148,6 +153,7 @@ fn main() {
         window: None,
         scale,
         key_map,
+        hotkey_map,
         _audio_stream: audio_stream,
         modifiers: winit::keyboard::ModifiersState::empty(),
     };
