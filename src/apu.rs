@@ -332,8 +332,6 @@ pub struct Apu {
     cycles: u64,
     sample_period: f64,
     sample_accumulator: f64,
-
-    filter_prev: f32,
 }
 
 impl Apu {
@@ -348,7 +346,6 @@ impl Apu {
             cycles: 0,
             sample_period: CPU_FREQUENCY / SAMPLE_RATE,
             sample_accumulator: 0.0,
-            filter_prev: 0.0,
         }
     }
 
@@ -525,14 +522,8 @@ impl Apu {
         self.sample_accumulator += 1.0;
         if self.sample_accumulator >= self.sample_period * adjustment {
             self.sample_accumulator -= self.sample_period * adjustment;
-            let raw = self.mix_output();
-
-            // First-order low-pass filter to reduce aliasing
-            const ALPHA: f32 = 0.65;
-            let filtered = ALPHA * self.filter_prev + (1.0 - ALPHA) * raw;
-            self.filter_prev = filtered;
-
-            let _ = self.audio_buffer.push(filtered);
+            let sample = self.mix_output();
+            let _ = self.audio_buffer.push(sample);
         }
     }
 
