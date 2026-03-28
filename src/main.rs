@@ -72,6 +72,14 @@ impl App {
             console,
             _audio_stream: audio_stream,
         };
+
+        // Snap window to NES scale size when entering game
+        if let Some(window) = self.window.as_ref() {
+            let _ = window.request_inner_size(winit::dpi::PhysicalSize::new(
+                NES_WIDTH * self.scale,
+                NES_HEIGHT * self.scale,
+            ));
+        }
     }
 
     fn return_to_menu(&mut self) {

@@ -217,6 +217,38 @@ impl Renderer {
 
         // Initialize egui
         let egui_ctx = egui::Context::default();
+
+        // Load CJK font for Chinese filename support
+        let mut fonts = egui::FontDefinitions::default();
+
+        let cjk_font_paths = [
+            "/System/Library/Fonts/PingFang.ttc",
+            "/System/Library/Fonts/STHeiti Light.ttc",
+            "/System/Library/Fonts/Hiragino Sans GB.ttc",
+            "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+            // Linux common paths
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        ];
+
+        for path in &cjk_font_paths {
+            if let Ok(font_data) = std::fs::read(path) {
+                fonts.font_data.insert(
+                    "cjk".to_owned(),
+                    std::sync::Arc::new(egui::FontData::from_owned(font_data)),
+                );
+                // Add CJK font as fallback for proportional text
+                fonts
+                    .families
+                    .entry(egui::FontFamily::Proportional)
+                    .or_default()
+                    .push("cjk".to_owned());
+                break;
+            }
+        }
+
+        egui_ctx.set_fonts(fonts);
+
         let egui_winit = egui_winit::State::new(
             egui_ctx.clone(),
             egui_ctx.viewport_id(),
