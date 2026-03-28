@@ -1,5 +1,6 @@
 use crate::mapper::Mapper;
 use crate::mapper::mapper0::Mapper0;
+use crate::mapper::mapper1::Mapper1;
 use crate::mapper::mapper2::Mapper2;
 use crate::mapper::mapper4::Mapper4;
 
@@ -53,6 +54,7 @@ impl Cartridge {
 
         let mapper: Box<dyn Mapper> = match mapper_number {
             0 => Box::new(Mapper0::new(prg_rom, chr_rom)),
+            1 => Box::new(Mapper1::new(prg_rom, chr_rom)),
             2 => Box::new(Mapper2::new(prg_rom, chr_rom)),
             3 => Box::new(crate::mapper::mapper3::Mapper3::new(prg_rom, chr_rom)),
             4 => Box::new(Mapper4::new(prg_rom, chr_rom, mirroring)),
@@ -101,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_unsupported_mapper() {
-        let data = make_ines_header(1, 1, 0x10, 0x00);
+        let data = make_ines_header(1, 1, 0x50, 0x00); // Mapper 5 (MMC5) unsupported
         assert!(Cartridge::from_ines(&data).is_err());
     }
 
