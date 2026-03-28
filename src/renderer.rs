@@ -5,6 +5,14 @@ use winit::window::Window;
 const NES_WIDTH: u32 = 256;
 const NES_HEIGHT: u32 = 240;
 
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct GpuGlobals {
+    window_size: [f32; 2],
+    shader_mode: u32,
+    _padding: u32,
+}
+
 pub struct Renderer {
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -14,10 +22,16 @@ pub struct Renderer {
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
     globals_buffer: wgpu::Buffer,
+    shader_mode: u32,
 }
 
 impl Renderer {
-    pub fn new(window: Arc<Window>, _scale: u32) -> Self {
+    pub fn new(window: Arc<Window>, _scale: u32, shader: &str) -> Self {
+        let shader_mode: u32 = match shader {
+            "crt" => 1,
+            "smooth" => 2,
+            _ => 0,
+        };
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -88,9 +102,14 @@ impl Renderer {
             ..Default::default()
         });
 
+        let globals = GpuGlobals {
+            window_size: [size.width.max(1) as f32, size.height.max(1) as f32],
+            shader_mode,
+            _padding: 0,
+        };
         let globals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Globals Buffer"),
-            contents: bytemuck::cast_slice(&[size.width.max(1) as f32, size.height.max(1) as f32]),
+            contents: bytemuck::bytes_of(&globals),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -199,6 +218,7 @@ impl Renderer {
             texture,
             bind_group,
             globals_buffer,
+            shader_mode,
         }
     }
 
@@ -207,11 +227,13 @@ impl Renderer {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
-            self.queue.write_buffer(
-                &self.globals_buffer,
-                0,
-                bytemuck::cast_slice(&[new_size.width as f32, new_size.height as f32]),
-            );
+            let globals = GpuGlobals {
+                window_size: [new_size.width as f32, new_size.height as f32],
+                shader_mode: self.shader_mode,
+                _padding: 0,
+            };
+            self.queue
+                .write_buffer(&self.globals_buffer, 0, bytemuck::bytes_of(&globals));
         }
     }
 

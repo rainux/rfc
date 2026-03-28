@@ -100,6 +100,7 @@ pub struct Config {
 #[serde(default)]
 pub struct DisplayConfig {
     pub scale: u32,
+    pub shader: String,
 }
 
 #[derive(Deserialize)]
@@ -141,7 +142,10 @@ impl Default for Config {
 
 impl Default for DisplayConfig {
     fn default() -> Self {
-        Self { scale: 3 }
+        Self {
+            scale: 3,
+            shader: "none".into(),
+        }
     }
 }
 

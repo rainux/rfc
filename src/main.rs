@@ -20,6 +20,7 @@ struct App {
     renderer: Option<Renderer>,
     window: Option<Arc<Window>>,
     scale: u32,
+    shader: String,
     key_map: KeyMap,
     hotkey_map: HotkeyMap,
     _audio_stream: Option<cpal::Stream>,
@@ -39,7 +40,7 @@ impl ApplicationHandler for App {
             .with_min_inner_size(winit::dpi::PhysicalSize::new(NES_WIDTH, NES_HEIGHT));
 
         let window = Arc::new(event_loop.create_window(attrs).unwrap());
-        let renderer = Renderer::new(Arc::clone(&window), self.scale);
+        let renderer = Renderer::new(Arc::clone(&window), self.scale, &self.shader);
         self.window = Some(window);
         self.renderer = Some(renderer);
     }
@@ -144,6 +145,7 @@ fn main() {
 
     let event_loop = EventLoop::new().unwrap();
     let scale = config.display.scale;
+    let shader = config.display.shader.clone();
     let key_map = KeyMap::from_config(&config.input);
     let hotkey_map = HotkeyMap::from_config(&config.hotkeys);
 
@@ -152,6 +154,7 @@ fn main() {
         renderer: None,
         window: None,
         scale,
+        shader,
         key_map,
         hotkey_map,
         _audio_stream: audio_stream,
