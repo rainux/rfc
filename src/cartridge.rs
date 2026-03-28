@@ -1,4 +1,5 @@
 use crate::mapper::mapper0::Mapper0;
+use crate::mapper::mapper2::Mapper2;
 use crate::mapper::Mapper;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -51,6 +52,7 @@ impl Cartridge {
 
         let mapper: Box<dyn Mapper> = match mapper_number {
             0 => Box::new(Mapper0::new(prg_rom, chr_rom)),
+            2 => Box::new(Mapper2::new(prg_rom, chr_rom)),
             _ => return Err(format!("Unsupported mapper: {}", mapper_number)),
         };
 
