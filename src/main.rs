@@ -5,12 +5,10 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowId};
 
-use winit::keyboard::KeyCode;
-
 use rfc::bus::Bus;
 use rfc::cartridge::Cartridge;
+use rfc::config::{Config, KeyMap};
 use rfc::console::Console;
-use rfc::joypad;
 use rfc::renderer::Renderer;
 
 const NES_WIDTH: u32 = 256;
@@ -21,6 +19,7 @@ struct App {
     renderer: Option<Renderer>,
     window: Option<Arc<Window>>,
     scale: u32,
+    key_map: KeyMap,
 }
 
 impl ApplicationHandler for App {
@@ -63,19 +62,14 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } => {
                 if let winit::keyboard::PhysicalKey::Code(key_code) = event.physical_key {
                     let pressed = event.state == winit::event::ElementState::Pressed;
-                    let button = match key_code {
-                        KeyCode::KeyE => Some(joypad::Button::Up),
-                        KeyCode::KeyD => Some(joypad::Button::Down),
-                        KeyCode::KeyS => Some(joypad::Button::Left),
-                        KeyCode::KeyF => Some(joypad::Button::Right),
-                        KeyCode::KeyK => Some(joypad::Button::A),
-                        KeyCode::KeyJ => Some(joypad::Button::B),
-                        KeyCode::KeyG => Some(joypad::Button::Select),
-                        KeyCode::KeyH => Some(joypad::Button::Start),
-                        _ => None,
-                    };
-                    if let Some(btn) = button {
-                        self.console.bus.joypad1.set_button(btn, pressed);
+                    for &(kc, button, player) in &self.key_map.mappings {
+                        if kc == key_code {
+                            match player {
+                                1 => self.console.bus.joypad1.set_button(button, pressed),
+                                2 => self.console.bus.joypad2.set_button(button, pressed),
+                                _ => {}
+                            }
+                        }
                     }
                 }
             }
@@ -86,6 +80,8 @@ impl ApplicationHandler for App {
 
 fn main() {
     env_logger::init();
+
+    let config = Config::load();
 
     let rom_path = std::env::args().nth(1).unwrap_or_else(|| {
         eprintln!("Usage: rfc <rom_file>");
@@ -100,13 +96,15 @@ fn main() {
     console.reset();
 
     let event_loop = EventLoop::new().unwrap();
-    let scale = 3u32;
+    let scale = config.display.scale;
+    let key_map = KeyMap::from_config(&config.input);
 
     let mut app = App {
         console,
         renderer: None,
         window: None,
         scale,
+        key_map,
     };
 
     event_loop.run_app(&mut app).unwrap();

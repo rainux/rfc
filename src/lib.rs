@@ -1,5 +1,6 @@
 pub mod bus;
 pub mod cartridge;
+pub mod config;
 pub mod console;
 pub mod cpu;
 pub mod joypad;
