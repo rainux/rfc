@@ -27,6 +27,13 @@ enum EmulatorState {
     },
 }
 
+/// Pending confirmation dialog
+#[derive(Clone, PartialEq)]
+enum ConfirmAction {
+    QuitApp,
+    ReturnToMenu,
+}
+
 struct App {
     state: EmulatorState,
     renderer: Option<Renderer>,
@@ -38,6 +45,7 @@ struct App {
     modifiers: winit::keyboard::ModifiersState,
     rom_path: String,
     turbo_rate: u8,
+    confirm_pending: Option<ConfirmAction>,
 }
 
 impl App {
@@ -81,6 +89,52 @@ impl App {
         }
     }
 
+    fn render_confirm_dialog(
+        ctx: &egui::Context,
+        message: &str,
+        confirmed: &mut bool,
+        cancelled: &mut bool,
+    ) {
+        egui::Window::new("Confirm")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(10.0);
+                    ui.label(egui::RichText::new(message).size(18.0));
+                    ui.add_space(15.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(20.0);
+                        if ui
+                            .button(egui::RichText::new("  Yes  ").size(16.0))
+                            .clicked()
+                        {
+                            *confirmed = true;
+                        }
+                        ui.add_space(20.0);
+                        if ui
+                            .button(egui::RichText::new("  No  ").size(16.0))
+                            .clicked()
+                        {
+                            *cancelled = true;
+                        }
+                    });
+                    ui.add_space(10.0);
+                });
+            });
+
+        // Keyboard shortcuts: Enter/Y = confirm, N/Esc = cancel
+        ctx.input(|i| {
+            if i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Y) {
+                *confirmed = true;
+            }
+            if i.key_pressed(egui::Key::N) {
+                *cancelled = true;
+            }
+        });
+    }
+
     fn return_to_menu(&mut self) {
         self.state = EmulatorState::Menu(Menu::new_with_path(&self.rom_path));
     }
@@ -105,8 +159,10 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        // Let egui handle events when in Menu state
-        if let EmulatorState::Menu(_) = &self.state {
+        // Let egui handle events when in Menu state or when confirmation dialog is showing
+        let egui_active =
+            matches!(&self.state, EmulatorState::Menu(_)) || self.confirm_pending.is_some();
+        if egui_active {
             if let Some(renderer) = self.renderer.as_mut() {
                 if let Some(window) = self.window.as_ref() {
                     let consumed = renderer.handle_event(window, &event);
@@ -164,27 +220,74 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 match &mut self.state {
                     EmulatorState::Menu(menu) => {
+                        let confirm = self.confirm_pending.clone();
                         if let (Some(renderer), Some(window)) =
                             (self.renderer.as_mut(), self.window.as_ref())
                         {
+                            let mut confirmed = false;
+                            let mut cancelled = false;
                             renderer.render_egui(window, |ctx| {
                                 menu.ui(ctx);
+                                if confirm.is_some() {
+                                    Self::render_confirm_dialog(
+                                        ctx,
+                                        "Quit rfc?",
+                                        &mut confirmed,
+                                        &mut cancelled,
+                                    );
+                                }
                             });
+                            if confirmed {
+                                event_loop.exit();
+                                return;
+                            }
+                            if cancelled {
+                                self.confirm_pending = None;
+                            }
                         }
                         // Check if a ROM should be launched
-                        if let EmulatorState::Menu(menu) = &mut self.state {
-                            if menu.should_launch {
-                                menu.should_launch = false;
-                                if let Some(path) = menu.launch_path.take() {
-                                    self.launch_rom(&path);
+                        if self.confirm_pending.is_none() {
+                            if let EmulatorState::Menu(menu) = &mut self.state {
+                                if menu.should_launch {
+                                    menu.should_launch = false;
+                                    if let Some(path) = menu.launch_path.take() {
+                                        self.launch_rom(&path);
+                                    }
                                 }
                             }
                         }
                     }
                     EmulatorState::Playing { console, .. } => {
-                        console.step_frame();
-                        if let Some(renderer) = self.renderer.as_ref() {
-                            renderer.render(console.frame_buffer());
+                        if self.confirm_pending.is_some() {
+                            // Paused — render game frame with egui overlay on top
+                            let mut confirmed = false;
+                            let mut cancelled = false;
+                            let fb = console.frame_buffer();
+                            if let (Some(renderer), Some(window)) =
+                                (self.renderer.as_mut(), self.window.as_ref())
+                            {
+                                renderer.render_with_egui_overlay(window, fb, |ctx| {
+                                    Self::render_confirm_dialog(
+                                        ctx,
+                                        "Return to game list?",
+                                        &mut confirmed,
+                                        &mut cancelled,
+                                    );
+                                });
+                            }
+                            if confirmed {
+                                self.confirm_pending = None;
+                                self.return_to_menu();
+                                return;
+                            }
+                            if cancelled {
+                                self.confirm_pending = None;
+                            }
+                        } else {
+                            console.step_frame();
+                            if let Some(renderer) = self.renderer.as_ref() {
+                                renderer.render(console.frame_buffer());
+                            }
                         }
                     }
                 }
@@ -199,11 +302,36 @@ impl ApplicationHandler for App {
                 if let winit::keyboard::PhysicalKey::Code(key_code) = event.physical_key {
                     let pressed = event.state == winit::event::ElementState::Pressed;
 
+                    // Handle confirm dialog keys globally when active
+                    if pressed && self.confirm_pending.is_some() {
+                        match key_code {
+                            KeyCode::KeyY | KeyCode::Enter => {
+                                match self.confirm_pending.take().unwrap() {
+                                    ConfirmAction::QuitApp => {
+                                        event_loop.exit();
+                                        return;
+                                    }
+                                    ConfirmAction::ReturnToMenu => {
+                                        self.return_to_menu();
+                                        return;
+                                    }
+                                }
+                            }
+                            KeyCode::KeyN | KeyCode::Escape => {
+                                self.confirm_pending = None;
+                                return;
+                            }
+                            _ => return, // Ignore other keys during confirm
+                        }
+                    }
+
                     match &mut self.state {
                         EmulatorState::Menu(menu) => {
                             if pressed {
                                 match key_code {
-                                    KeyCode::Escape => event_loop.exit(),
+                                    KeyCode::Escape => {
+                                        self.confirm_pending = Some(ConfirmAction::QuitApp);
+                                    }
                                     _ => {
                                         // Handle configured joypad keys for navigation
                                         for &(kc, ref action, player) in &self.key_map.mappings {
@@ -240,9 +368,9 @@ impl ApplicationHandler for App {
                         }
                         EmulatorState::Playing { console, .. } => {
                             if pressed {
-                                // Escape returns to menu
+                                // Escape triggers confirmation dialog
                                 if key_code == KeyCode::Escape {
-                                    self.return_to_menu();
+                                    self.confirm_pending = Some(ConfirmAction::ReturnToMenu);
                                     return;
                                 }
 
@@ -352,6 +480,7 @@ fn main() {
         modifiers: winit::keyboard::ModifiersState::empty(),
         rom_path: rom_path_config,
         turbo_rate,
+        confirm_pending: None,
     };
 
     event_loop.run_app(&mut app).unwrap();

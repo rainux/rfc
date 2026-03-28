@@ -464,4 +464,126 @@ impl Renderer {
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
     }
+
+    /// Render the NES frame first, then overlay egui on top (for in-game dialogs).
+    pub fn render_with_egui_overlay<F>(&mut self, window: &Window, frame_buffer: &[u8], ui_fn: F)
+    where
+        F: FnMut(&egui::Context),
+    {
+        // Upload NES frame
+        self.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            frame_buffer,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(NES_WIDTH * 4),
+                rows_per_image: Some(NES_HEIGHT),
+            },
+            wgpu::Extent3d {
+                width: NES_WIDTH,
+                height: NES_HEIGHT,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        // Prepare egui
+        let raw_input = self.egui_winit.take_egui_input(window);
+        let full_output = self.egui_ctx.run(raw_input, ui_fn);
+        self.egui_winit
+            .handle_platform_output(window, full_output.platform_output);
+        let paint_jobs = self
+            .egui_ctx
+            .tessellate(full_output.shapes, full_output.pixels_per_point);
+        let screen_descriptor = egui_wgpu::ScreenDescriptor {
+            size_in_pixels: [self.config.width, self.config.height],
+            pixels_per_point: full_output.pixels_per_point,
+        };
+        for (id, delta) in &full_output.textures_delta.set {
+            self.egui_renderer
+                .update_texture(&self.device, &self.queue, *id, delta);
+        }
+
+        let output = match self.surface.get_current_texture() {
+            Ok(t) => t,
+            Err(wgpu::SurfaceError::Lost) => {
+                self.surface.configure(&self.device, &self.config);
+                return;
+            }
+            Err(e) => {
+                log::warn!("Surface error: {:?}", e);
+                return;
+            }
+        };
+
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Overlay Render Encoder"),
+            });
+
+        // Pass 1: render NES frame (Clear)
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("NES Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &self.bind_group, &[]);
+            render_pass.draw(0..3, 0..1);
+        }
+
+        // Pass 2: overlay egui (Load, not Clear)
+        self.egui_renderer.update_buffers(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            &paint_jobs,
+            &screen_descriptor,
+        );
+        {
+            let mut render_pass = encoder
+                .begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("egui Overlay Pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load, // Keep NES frame underneath
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                })
+                .forget_lifetime();
+            self.egui_renderer
+                .render(&mut render_pass, &paint_jobs, &screen_descriptor);
+        }
+
+        for id in &full_output.textures_delta.free {
+            self.egui_renderer.free_texture(id);
+        }
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
+    }
 }
