@@ -1,6 +1,73 @@
 use crate::cartridge::Mirroring;
 use crate::mapper::Mapper;
 
+const PALETTE_COLORS: [(u8, u8, u8); 64] = [
+    (84, 84, 84),
+    (0, 30, 116),
+    (8, 16, 144),
+    (48, 0, 136),
+    (68, 0, 100),
+    (92, 0, 48),
+    (84, 4, 0),
+    (60, 24, 0),
+    (32, 42, 0),
+    (8, 58, 0),
+    (0, 64, 0),
+    (0, 60, 0),
+    (0, 50, 60),
+    (0, 0, 0),
+    (0, 0, 0),
+    (0, 0, 0),
+    (152, 150, 152),
+    (8, 76, 196),
+    (48, 50, 236),
+    (92, 30, 228),
+    (136, 20, 176),
+    (160, 20, 100),
+    (152, 34, 32),
+    (120, 60, 0),
+    (84, 90, 0),
+    (40, 114, 0),
+    (8, 124, 0),
+    (0, 118, 40),
+    (0, 102, 120),
+    (0, 0, 0),
+    (0, 0, 0),
+    (0, 0, 0),
+    (236, 238, 236),
+    (76, 154, 236),
+    (120, 124, 236),
+    (176, 98, 236),
+    (228, 84, 236),
+    (236, 88, 180),
+    (236, 106, 100),
+    (212, 136, 32),
+    (160, 170, 0),
+    (116, 196, 0),
+    (76, 208, 32),
+    (56, 204, 108),
+    (56, 180, 204),
+    (60, 60, 60),
+    (0, 0, 0),
+    (0, 0, 0),
+    (236, 238, 236),
+    (168, 204, 236),
+    (188, 188, 236),
+    (212, 178, 236),
+    (236, 174, 236),
+    (236, 174, 212),
+    (236, 180, 176),
+    (228, 196, 144),
+    (204, 210, 120),
+    (180, 222, 120),
+    (168, 226, 144),
+    (152, 226, 180),
+    (160, 214, 228),
+    (160, 162, 160),
+    (0, 0, 0),
+    (0, 0, 0),
+];
+
 pub struct Ppu {
     // VRAM and sprite memory
     pub vram: [u8; 2048],
@@ -237,9 +304,43 @@ impl Ppu {
         }
     }
 
-    /// Stub step function — rendering logic comes in Task 12
-    pub fn step(&mut self, _mapper: &dyn Mapper) {
-        // Minimal VBlank/frame timing
+    /// Advance the PPU by one cycle. Handles scanline rendering, scroll updates, and VBlank timing.
+    pub fn step(&mut self, mapper: &dyn Mapper) {
+        let rendering_enabled = self.mask & 0x18 != 0;
+
+        // Visible scanlines (0-239)
+        if self.scanline < 240 {
+            if self.cycle == 257 && rendering_enabled {
+                self.render_background_scanline(mapper);
+                // Copy horizontal position bits from t to v
+                self.v = (self.v & !0x041F) | (self.t & 0x041F);
+                // Increment fine/coarse Y for next scanline
+                self.increment_y();
+            }
+        }
+
+        // VBlank start at scanline 241, cycle 1
+        if self.scanline == 241 && self.cycle == 1 {
+            self.status |= 0x80;
+            if self.ctrl & 0x80 != 0 {
+                self.nmi_pending = true;
+            }
+        }
+
+        // Pre-render scanline (261)
+        if self.scanline == 261 {
+            if self.cycle == 1 {
+                // Clear VBlank, sprite 0 hit, sprite overflow
+                self.status &= !0xE0;
+                self.nmi_pending = false;
+            }
+            // Copy vertical bits from t to v during cycles 280-304
+            if self.cycle >= 280 && self.cycle <= 304 && rendering_enabled {
+                self.v = (self.v & !0x7BE0) | (self.t & 0x7BE0);
+            }
+        }
+
+        // Advance cycle/scanline counters
         self.cycle += 1;
         if self.cycle > 340 {
             self.cycle = 0;
@@ -249,18 +350,114 @@ impl Ppu {
                 self.frame_complete = true;
             }
         }
+    }
 
-        // Set VBlank at scanline 241, cycle 1
-        if self.scanline == 241 && self.cycle == 1 {
-            self.status |= 0x80;
-            if self.ctrl & 0x80 != 0 {
-                self.nmi_pending = true;
-            }
+    /// Render one scanline of background tiles into the frame buffer.
+    fn render_background_scanline(&mut self, mapper: &dyn Mapper) {
+        let y = self.scanline as usize;
+        if y >= 240 {
+            return;
         }
 
-        // Clear VBlank at pre-render scanline (261), cycle 1
-        if self.scanline == 261 && self.cycle == 1 {
-            self.status &= !0x80;
+        let bg_enabled = self.mask & 0x08 != 0;
+        let pattern_base: u16 = if self.ctrl & 0x10 != 0 { 0x1000 } else { 0x0000 };
+
+        if !bg_enabled {
+            for x in 0..256 {
+                self.set_pixel(x, y, self.palette[0]);
+            }
+            return;
+        }
+
+        // Extract scroll state from v register
+        let fine_y = (self.v >> 12) & 7;
+        let mut coarse_x = self.v & 0x001F;
+        let coarse_y = (self.v >> 5) & 0x001F;
+        let mut nametable = (self.v >> 10) & 0x03;
+        let fine_x = self.x;
+
+        // Fetch the first tile
+        let mut tile_x_counter = fine_x;
+        let nt_addr = 0x2000 | (nametable << 10) | (coarse_y << 5) | coarse_x;
+        let tile_id = self.ppu_read(nt_addr, mapper);
+        let pattern_addr = pattern_base + (tile_id as u16) * 16 + fine_y;
+        let mut pattern_lo = self.ppu_read(pattern_addr, mapper);
+        let mut pattern_hi = self.ppu_read(pattern_addr + 8, mapper);
+
+        let attr_addr = 0x23C0 | (nametable << 10) | ((coarse_y / 4) << 3) | (coarse_x / 4);
+        let attr_byte = self.ppu_read(attr_addr, mapper);
+        let palette_shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
+        let mut palette_num = (attr_byte >> palette_shift) & 0x03;
+
+        for pixel_x in 0..256u16 {
+            if pixel_x < 8 && self.mask & 0x02 == 0 {
+                self.set_pixel(pixel_x as usize, y, self.palette[0]);
+            } else {
+                let bit = 7 - tile_x_counter;
+                let color_lo = (pattern_lo >> bit) & 1;
+                let color_hi = (pattern_hi >> bit) & 1;
+                let color_index = color_lo | (color_hi << 1);
+
+                let palette_index = if color_index == 0 {
+                    self.palette[0] // Universal background color
+                } else {
+                    let addr = (palette_num as usize) * 4 + color_index as usize;
+                    self.palette[addr]
+                };
+
+                self.set_pixel(pixel_x as usize, y, palette_index);
+            }
+
+            tile_x_counter += 1;
+            if tile_x_counter >= 8 {
+                tile_x_counter = 0;
+                // Increment coarse X, switching horizontal nametable on wrap
+                coarse_x = (coarse_x + 1) & 0x1F;
+                if coarse_x == 0 {
+                    nametable ^= 0x01;
+                }
+                // Fetch next tile
+                let nt_addr = 0x2000 | (nametable << 10) | (coarse_y << 5) | coarse_x;
+                let tile_id = self.ppu_read(nt_addr, mapper);
+                let pattern_addr = pattern_base + (tile_id as u16) * 16 + fine_y;
+                pattern_lo = self.ppu_read(pattern_addr, mapper);
+                pattern_hi = self.ppu_read(pattern_addr + 8, mapper);
+
+                let attr_addr =
+                    0x23C0 | (nametable << 10) | ((coarse_y / 4) << 3) | (coarse_x / 4);
+                let attr_byte = self.ppu_read(attr_addr, mapper);
+                let palette_shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
+                palette_num = (attr_byte >> palette_shift) & 0x03;
+            }
+        }
+    }
+
+    /// Write an RGB pixel to the frame buffer using a NES palette index.
+    fn set_pixel(&mut self, x: usize, y: usize, palette_index: u8) {
+        let (r, g, b) = PALETTE_COLORS[(palette_index & 0x3F) as usize];
+        let offset = (y * 256 + x) * 4;
+        self.frame_buffer[offset] = r;
+        self.frame_buffer[offset + 1] = g;
+        self.frame_buffer[offset + 2] = b;
+        self.frame_buffer[offset + 3] = 255;
+    }
+
+    /// Increment the fine/coarse Y scroll in the v register.
+    fn increment_y(&mut self) {
+        if (self.v & 0x7000) != 0x7000 {
+            self.v += 0x1000; // Increment fine Y
+        } else {
+            self.v &= !0x7000; // Fine Y = 0
+            let mut coarse_y = (self.v & 0x03E0) >> 5;
+            if coarse_y == 29 {
+                coarse_y = 0;
+                self.v ^= 0x0800; // Switch vertical nametable
+            } else if coarse_y == 31 {
+                coarse_y = 0; // Don't switch nametable
+            } else {
+                coarse_y += 1;
+            }
+            self.v = (self.v & !0x03E0) | (coarse_y << 5);
         }
     }
 }
