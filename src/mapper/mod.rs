@@ -1,5 +1,6 @@
 pub mod mapper0;
 pub mod mapper2;
+pub mod mapper3;
 
 pub trait Mapper {
     fn cpu_read(&self, addr: u16) -> u8;
