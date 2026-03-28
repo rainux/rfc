@@ -13,7 +13,7 @@ use rfc::cartridge::Cartridge;
 use rfc::config::{ButtonAction, Config, HotkeyMap, KeyMap};
 use rfc::console::Console;
 use rfc::joypad::Button;
-use rfc::menu::{Menu, RomEntry, scan_roms};
+use rfc::menu::Menu;
 use rfc::renderer::Renderer;
 
 const NES_WIDTH: u32 = 256;
@@ -36,8 +36,7 @@ struct App {
     key_map: KeyMap,
     hotkey_map: HotkeyMap,
     modifiers: winit::keyboard::ModifiersState,
-    /// Cached ROM list so we can return to the menu without re-scanning.
-    rom_list: Vec<RomEntry>,
+    rom_path: String,
     turbo_rate: u8,
 }
 
@@ -83,12 +82,7 @@ impl App {
     }
 
     fn return_to_menu(&mut self) {
-        let mut menu = Menu::new(self.rom_list.clone());
-        // Try to preserve the previously selected index
-        if let EmulatorState::Menu(ref old) = self.state {
-            menu.selected = old.selected;
-        }
-        self.state = EmulatorState::Menu(menu);
+        self.state = EmulatorState::Menu(Menu::new_with_path(&self.rom_path));
     }
 }
 
@@ -177,12 +171,12 @@ impl ApplicationHandler for App {
                                 menu.ui(ctx);
                             });
                         }
-                        // Check if a ROM should be launched (set by egui keyboard/click)
+                        // Check if a ROM should be launched
                         if let EmulatorState::Menu(menu) = &mut self.state {
                             if menu.should_launch {
                                 menu.should_launch = false;
-                                if let Some(entry) = menu.selected_rom().cloned() {
-                                    self.launch_rom(&entry.path);
+                                if let Some(path) = menu.launch_path.take() {
+                                    self.launch_rom(&path);
                                 }
                             }
                         }
@@ -221,13 +215,19 @@ impl ApplicationHandler for App {
                                                     ButtonAction::Normal(Button::Down) => {
                                                         menu.move_down()
                                                     }
-                                                    ButtonAction::Normal(Button::Start) => {
-                                                        if let Some(entry) =
-                                                            menu.selected_rom().cloned()
-                                                        {
-                                                            menu.should_launch = true;
-                                                            let _ = entry; // launch handled in RedrawRequested
-                                                        }
+                                                    ButtonAction::Normal(Button::Left) => {
+                                                        menu.page_up()
+                                                    }
+                                                    ButtonAction::Normal(Button::Right) => {
+                                                        menu.page_down()
+                                                    }
+                                                    ButtonAction::Normal(Button::Start)
+                                                    | ButtonAction::Normal(Button::B)
+                                                    | ButtonAction::Normal(Button::Select) => {
+                                                        menu.activate_selected();
+                                                    }
+                                                    ButtonAction::Normal(Button::A) => {
+                                                        menu.go_back();
                                                     }
                                                     _ => {}
                                                 }
@@ -318,9 +318,6 @@ fn main() {
     let hotkey_map = HotkeyMap::from_config(&config.hotkeys);
     let rom_path_config = config.rom.path.clone();
 
-    // Scan ROMs directory for the menu
-    let rom_list = scan_roms(&rom_path_config);
-
     // Determine initial state
     let initial_state = if let Some(ref path) = rom_arg {
         // Direct ROM launch — skip menu
@@ -339,7 +336,7 @@ fn main() {
             _audio_stream: audio_stream,
         }
     } else {
-        EmulatorState::Menu(Menu::new(rom_list.clone()))
+        EmulatorState::Menu(Menu::new_with_path(&rom_path_config))
     };
 
     let event_loop = EventLoop::new().unwrap();
@@ -353,7 +350,7 @@ fn main() {
         key_map,
         hotkey_map,
         modifiers: winit::keyboard::ModifiersState::empty(),
-        rom_list,
+        rom_path: rom_path_config,
         turbo_rate,
     };
 
