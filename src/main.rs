@@ -1,8 +1,10 @@
 use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::keyboard::KeyCode;
 use winit::window::{Window, WindowId};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -10,21 +12,73 @@ use rfc::bus::Bus;
 use rfc::cartridge::Cartridge;
 use rfc::config::{Config, HotkeyMap, KeyMap};
 use rfc::console::Console;
+use rfc::joypad::Button;
+use rfc::menu::{Menu, RomEntry, scan_roms};
 use rfc::renderer::Renderer;
 
 const NES_WIDTH: u32 = 256;
 const NES_HEIGHT: u32 = 240;
 
+enum EmulatorState {
+    Menu(Menu),
+    Playing {
+        console: Console,
+        _audio_stream: Option<cpal::Stream>,
+    },
+}
+
 struct App {
-    console: Console,
+    state: EmulatorState,
     renderer: Option<Renderer>,
     window: Option<Arc<Window>>,
     scale: u32,
     shader: String,
     key_map: KeyMap,
     hotkey_map: HotkeyMap,
-    _audio_stream: Option<cpal::Stream>,
     modifiers: winit::keyboard::ModifiersState,
+    /// Cached ROM list so we can return to the menu without re-scanning.
+    rom_list: Vec<RomEntry>,
+}
+
+impl App {
+    fn launch_rom(&mut self, path: &PathBuf) {
+        let rom_data = match fs::read(path) {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("Failed to read ROM {}: {}", path.display(), e);
+                return;
+            }
+        };
+        let cartridge = match Cartridge::from_ines(&rom_data) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Failed to parse ROM {}: {}", path.display(), e);
+                return;
+            }
+        };
+
+        let mut bus = Bus::new();
+        bus.load_cartridge(cartridge);
+        let mut console = Console::new(bus);
+        console.reset();
+
+        let audio_buffer = console.bus.apu.audio_buffer.clone();
+        let audio_stream = setup_audio(audio_buffer);
+
+        self.state = EmulatorState::Playing {
+            console,
+            _audio_stream: audio_stream,
+        };
+    }
+
+    fn return_to_menu(&mut self) {
+        let mut menu = Menu::new(self.rom_list.clone());
+        // Try to preserve the previously selected index
+        if let EmulatorState::Menu(ref old) = self.state {
+            menu.selected = old.selected;
+        }
+        self.state = EmulatorState::Menu(menu);
+    }
 }
 
 impl ApplicationHandler for App {
@@ -56,9 +110,15 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                self.console.step_frame();
+                let frame = match &mut self.state {
+                    EmulatorState::Menu(menu) => menu.render(),
+                    EmulatorState::Playing { console, .. } => {
+                        console.step_frame();
+                        console.frame_buffer()
+                    }
+                };
                 if let Some(renderer) = self.renderer.as_ref() {
-                    renderer.render(self.console.frame_buffer());
+                    renderer.render(frame);
                 }
                 if let Some(window) = self.window.as_ref() {
                     window.request_redraw();
@@ -71,47 +131,90 @@ impl ApplicationHandler for App {
                 if let winit::keyboard::PhysicalKey::Code(key_code) = event.physical_key {
                     let pressed = event.state == winit::event::ElementState::Pressed;
 
-                    // Shortcuts (key down only)
-                    if pressed {
-                        // Scale hotkeys
-                        let scales = [
-                            (&self.hotkey_map.scale_1, 1u32),
-                            (&self.hotkey_map.scale_2, 2),
-                            (&self.hotkey_map.scale_3, 3),
-                        ];
-                        for (hotkey, scale) in &scales {
-                            if let Some(hk) = hotkey {
-                                if hk.matches(key_code, &self.modifiers) {
-                                    if let Some(window) = self.window.as_ref() {
-                                        self.scale = *scale;
-                                        let _ = window.request_inner_size(
-                                            winit::dpi::PhysicalSize::new(
-                                                NES_WIDTH * scale,
-                                                NES_HEIGHT * scale,
-                                            ),
-                                        );
+                    match &mut self.state {
+                        EmulatorState::Menu(menu) => {
+                            if pressed {
+                                match key_code {
+                                    KeyCode::ArrowUp => menu.move_up(),
+                                    KeyCode::ArrowDown => menu.move_down(),
+                                    KeyCode::Enter => {
+                                        if let Some(entry) = menu.selected_rom().cloned() {
+                                            self.launch_rom(&entry.path);
+                                        }
                                     }
-                                    return;
+                                    KeyCode::Escape => event_loop.exit(),
+                                    _ => {
+                                        // Also handle configured joypad keys for navigation
+                                        for &(kc, button, player) in &self.key_map.mappings {
+                                            if kc == key_code && player == 1 {
+                                                match button {
+                                                    Button::Up => menu.move_up(),
+                                                    Button::Down => menu.move_down(),
+                                                    Button::Start => {
+                                                        if let Some(entry) =
+                                                            menu.selected_rom().cloned()
+                                                        {
+                                                            self.launch_rom(&entry.path);
+                                                        }
+                                                    }
+                                                    _ => {}
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
+                        EmulatorState::Playing { console, .. } => {
+                            if pressed {
+                                // Escape returns to menu
+                                if key_code == KeyCode::Escape {
+                                    self.return_to_menu();
+                                    return;
+                                }
 
-                        // Reset hotkey
-                        if let Some(ref hk) = self.hotkey_map.reset {
-                            if hk.matches(key_code, &self.modifiers) {
-                                self.console.reset();
-                                return;
+                                // Scale hotkeys
+                                let scales = [
+                                    (&self.hotkey_map.scale_1, 1u32),
+                                    (&self.hotkey_map.scale_2, 2),
+                                    (&self.hotkey_map.scale_3, 3),
+                                ];
+                                for (hotkey, scale) in &scales {
+                                    if let Some(hk) = hotkey {
+                                        if hk.matches(key_code, &self.modifiers) {
+                                            if let Some(window) = self.window.as_ref() {
+                                                self.scale = *scale;
+                                                let _ = window.request_inner_size(
+                                                    winit::dpi::PhysicalSize::new(
+                                                        NES_WIDTH * scale,
+                                                        NES_HEIGHT * scale,
+                                                    ),
+                                                );
+                                            }
+                                            return;
+                                        }
+                                    }
+                                }
+
+                                // Reset hotkey
+                                if let Some(ref hk) = self.hotkey_map.reset {
+                                    if hk.matches(key_code, &self.modifiers) {
+                                        console.reset();
+                                        return;
+                                    }
+                                }
                             }
-                        }
-                    }
 
-                    // Joypad input
-                    for &(kc, button, player) in &self.key_map.mappings {
-                        if kc == key_code {
-                            match player {
-                                1 => self.console.bus.joypad1.set_button(button, pressed),
-                                2 => self.console.bus.joypad2.set_button(button, pressed),
-                                _ => {}
+                            // Joypad input (press and release)
+                            for &(kc, button, player) in &self.key_map.mappings {
+                                if kc == key_code {
+                                    match player {
+                                        1 => console.bus.joypad1.set_button(button, pressed),
+                                        2 => console.bus.joypad2.set_button(button, pressed),
+                                        _ => {}
+                                    }
+                                }
                             }
                         }
                     }
@@ -127,38 +230,48 @@ fn main() {
 
     let config = Config::load();
 
-    let rom_path = std::env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("Usage: rfc <rom_file>");
-        std::process::exit(1);
-    });
-    let rom_data = fs::read(&rom_path).expect("Failed to read ROM");
-    let cartridge = Cartridge::from_ines(&rom_data).expect("Failed to parse ROM");
+    let rom_arg = std::env::args().nth(1);
 
-    let mut bus = Bus::new();
-    bus.load_cartridge(cartridge);
-    let mut console = Console::new(bus);
-    console.reset();
-
-    // Set up audio output
-    let audio_buffer = console.bus.apu.audio_buffer.clone();
-    let audio_stream = setup_audio(audio_buffer);
-
-    let event_loop = EventLoop::new().unwrap();
     let scale = config.display.scale;
     let shader = config.display.shader.clone();
     let key_map = KeyMap::from_config(&config.input);
     let hotkey_map = HotkeyMap::from_config(&config.hotkeys);
+    let rom_path_config = config.rom.path.clone();
+
+    // Scan ROMs directory for the menu
+    let rom_list = scan_roms(&rom_path_config);
+
+    // Determine initial state
+    let initial_state = if let Some(ref path) = rom_arg {
+        // Direct ROM launch — skip menu
+        let rom_data = fs::read(path).expect("Failed to read ROM");
+        let cartridge = Cartridge::from_ines(&rom_data).expect("Failed to parse ROM");
+        let mut bus = Bus::new();
+        bus.load_cartridge(cartridge);
+        let mut console = Console::new(bus);
+        console.reset();
+        let audio_buffer = console.bus.apu.audio_buffer.clone();
+        let audio_stream = setup_audio(audio_buffer);
+        EmulatorState::Playing {
+            console,
+            _audio_stream: audio_stream,
+        }
+    } else {
+        EmulatorState::Menu(Menu::new(rom_list.clone()))
+    };
+
+    let event_loop = EventLoop::new().unwrap();
 
     let mut app = App {
-        console,
+        state: initial_state,
         renderer: None,
         window: None,
         scale,
         shader,
         key_map,
         hotkey_map,
-        _audio_stream: audio_stream,
         modifiers: winit::keyboard::ModifiersState::empty(),
+        rom_list,
     };
 
     event_loop.run_app(&mut app).unwrap();
