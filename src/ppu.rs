@@ -311,7 +311,7 @@ impl Ppu {
         // Visible scanlines (0-239)
         if self.scanline < 240 {
             if self.cycle == 257 && rendering_enabled {
-                self.render_background_scanline(mapper);
+                self.render_scanline(mapper);
                 // Copy horizontal position bits from t to v
                 self.v = (self.v & !0x041F) | (self.t & 0x041F);
                 // Increment fine/coarse Y for next scanline
@@ -352,22 +352,76 @@ impl Ppu {
         }
     }
 
-    /// Render one scanline of background tiles into the frame buffer.
-    fn render_background_scanline(&mut self, mapper: &dyn Mapper) {
+    /// Render one scanline: background + sprites composited together.
+    fn render_scanline(&mut self, mapper: &dyn Mapper) {
         let y = self.scanline as usize;
         if y >= 240 {
             return;
         }
 
+        // 1. Render background pixels into a temp array
+        // Each entry is the full palette RAM index (palette_num * 4 + color_index) for opaque,
+        // or 0 for transparent (color_index bits 0-1 == 0).
+        let mut bg_pixels = [0u8; 256];
+        self.render_background_line(mapper, &mut bg_pixels);
+
+        // 2. Evaluate and render sprites
+        // (color_index 1-3, palette 0-3, behind_bg, is_sprite0)
+        let mut sprite_pixels: [(u8, u8, bool, bool); 256] = [(0, 0, false, false); 256];
+        if self.mask & 0x10 != 0 {
+            self.render_sprites_line(mapper, &mut sprite_pixels);
+        }
+
+        // 3. Composite
+        for x in 0..256 {
+            let bg = bg_pixels[x];
+            let (sp_color, sp_palette, sp_behind, sp_is_sprite0) = sprite_pixels[x];
+
+            let bg_opaque = bg & 0x03 != 0;
+            let sp_opaque = sp_color != 0;
+
+            // Sprite-0 hit detection
+            if sp_is_sprite0 && bg_opaque && sp_opaque && x < 255 {
+                if self.mask & 0x18 == 0x18 {
+                    // Both bg and sprites enabled
+                    if x >= 8 || (self.mask & 0x06 == 0x06) {
+                        // Left column check
+                        self.status |= 0x40;
+                    }
+                }
+            }
+
+            // Determine final pixel
+            let palette_index = if !bg_opaque && !sp_opaque {
+                self.palette[0]
+            } else if !bg_opaque && sp_opaque {
+                self.palette[0x10 + sp_palette as usize * 4 + sp_color as usize]
+            } else if bg_opaque && !sp_opaque {
+                self.palette[bg as usize]
+            } else {
+                // Both opaque - priority decides
+                if sp_behind {
+                    self.palette[bg as usize]
+                } else {
+                    self.palette[0x10 + sp_palette as usize * 4 + sp_color as usize]
+                }
+            };
+
+            self.set_pixel(x, y, palette_index);
+        }
+    }
+
+    /// Render one scanline of background tiles into a pixel buffer.
+    /// Each entry is (palette_num * 4 + color_index) for opaque pixels, 0 for transparent.
+    fn render_background_line(&self, mapper: &dyn Mapper, pixels: &mut [u8; 256]) {
         let bg_enabled = self.mask & 0x08 != 0;
-        let pattern_base: u16 = if self.ctrl & 0x10 != 0 { 0x1000 } else { 0x0000 };
 
         if !bg_enabled {
-            for x in 0..256 {
-                self.set_pixel(x, y, self.palette[0]);
-            }
+            // All pixels are transparent background
             return;
         }
+
+        let pattern_base: u16 = if self.ctrl & 0x10 != 0 { 0x1000 } else { 0x0000 };
 
         // Extract scroll state from v register
         let fine_y = (self.v >> 12) & 7;
@@ -391,32 +445,26 @@ impl Ppu {
 
         for pixel_x in 0..256u16 {
             if pixel_x < 8 && self.mask & 0x02 == 0 {
-                self.set_pixel(pixel_x as usize, y, self.palette[0]);
+                // Left 8 pixels hidden: leave as 0 (transparent)
             } else {
                 let bit = 7 - tile_x_counter;
                 let color_lo = (pattern_lo >> bit) & 1;
                 let color_hi = (pattern_hi >> bit) & 1;
                 let color_index = color_lo | (color_hi << 1);
 
-                let palette_index = if color_index == 0 {
-                    self.palette[0] // Universal background color
-                } else {
-                    let addr = (palette_num as usize) * 4 + color_index as usize;
-                    self.palette[addr]
-                };
-
-                self.set_pixel(pixel_x as usize, y, palette_index);
+                if color_index != 0 {
+                    pixels[pixel_x as usize] = palette_num * 4 + color_index;
+                }
+                // color_index == 0 means transparent, pixels already 0
             }
 
             tile_x_counter += 1;
             if tile_x_counter >= 8 {
                 tile_x_counter = 0;
-                // Increment coarse X, switching horizontal nametable on wrap
                 coarse_x = (coarse_x + 1) & 0x1F;
                 if coarse_x == 0 {
                     nametable ^= 0x01;
                 }
-                // Fetch next tile
                 let nt_addr = 0x2000 | (nametable << 10) | (coarse_y << 5) | coarse_x;
                 let tile_id = self.ppu_read(nt_addr, mapper);
                 let pattern_addr = pattern_base + (tile_id as u16) * 16 + fine_y;
@@ -428,6 +476,95 @@ impl Ppu {
                 let attr_byte = self.ppu_read(attr_addr, mapper);
                 let palette_shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
                 palette_num = (attr_byte >> palette_shift) & 0x03;
+            }
+        }
+    }
+
+    /// Evaluate and render sprites for the current scanline.
+    fn render_sprites_line(
+        &mut self,
+        mapper: &dyn Mapper,
+        pixels: &mut [(u8, u8, bool, bool); 256],
+    ) {
+        let sprite_height: u16 = if self.ctrl & 0x20 != 0 { 16 } else { 8 };
+        let pattern_base: u16 = if self.ctrl & 0x08 != 0 {
+            0x1000
+        } else {
+            0x0000
+        };
+        let y = self.scanline as u16;
+
+        let mut sprite_count = 0;
+
+        for i in 0..64usize {
+            let sprite_y = self.oam[i * 4] as u16 + 1; // +1: sprites delayed 1 scanline
+            if y < sprite_y || y >= sprite_y + sprite_height {
+                continue;
+            }
+            if sprite_count >= 8 {
+                self.status |= 0x20; // Sprite overflow (simplified)
+                break;
+            }
+            sprite_count += 1;
+
+            let tile_index = self.oam[i * 4 + 1] as u16;
+            let attributes = self.oam[i * 4 + 2];
+            let sprite_x = self.oam[i * 4 + 3] as usize;
+
+            let palette = attributes & 0x03;
+            let behind_bg = attributes & 0x20 != 0;
+            let flip_h = attributes & 0x40 != 0;
+            let flip_v = attributes & 0x80 != 0;
+
+            let mut row = y - sprite_y;
+            if flip_v {
+                row = sprite_height - 1 - row;
+            }
+
+            // Get pattern address
+            let pattern_addr = if sprite_height == 16 {
+                // 8x16 mode: bit 0 of tile index selects pattern table
+                let table = (tile_index & 1) * 0x1000;
+                let tile = tile_index & 0xFE;
+                if row < 8 {
+                    table + tile * 16 + row
+                } else {
+                    table + (tile + 1) * 16 + (row - 8)
+                }
+            } else {
+                pattern_base + tile_index * 16 + row
+            };
+
+            let pattern_lo = self.ppu_read(pattern_addr, mapper);
+            let pattern_hi = self.ppu_read(pattern_addr + 8, mapper);
+
+            for col in 0..8u8 {
+                let px = if flip_h {
+                    sprite_x + col as usize
+                } else {
+                    sprite_x + (7 - col) as usize
+                };
+                if px >= 256 {
+                    continue;
+                }
+
+                // Skip if leftmost 8 pixels and mask says hide sprites there
+                if px < 8 && self.mask & 0x04 == 0 {
+                    continue;
+                }
+
+                let bit_lo = (pattern_lo >> col) & 1;
+                let bit_hi = (pattern_hi >> col) & 1;
+                let color = bit_lo | (bit_hi << 1);
+
+                if color == 0 {
+                    continue;
+                } // Transparent
+
+                // Only draw if no higher-priority sprite already here
+                if pixels[px].0 == 0 {
+                    pixels[px] = (color, palette, behind_bg, i == 0);
+                }
             }
         }
     }
