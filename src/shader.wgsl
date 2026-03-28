@@ -44,6 +44,21 @@ fn crt_effect(uv: vec2f) -> vec4f {
     return vec4f(color.rgb * scanline * vignette, 1.0);
 }
 
+fn scanline_effect(uv: vec2f) -> vec4f {
+    let color = textureSample(tex, samp, uv);
+
+    // Map to NES pixel row (0-239)
+    let nes_y = uv.y * 240.0;
+    // Scale factor: how many screen pixels per NES pixel
+    let scale = globals.window_size.y / 240.0;
+    // Position within the scaled pixel (0.0-1.0)
+    let frac = fract(nes_y);
+    // Darken the bottom portion of each scanline gap
+    let brightness = select(1.0, 0.5, frac > (1.0 - 1.0 / scale));
+
+    return vec4f(color.rgb * brightness, 1.0);
+}
+
 fn smooth_effect(uv: vec2f) -> vec4f {
     // Bilinear interpolation by sampling at sub-pixel offsets
     let tex_size = vec2f(256.0, 240.0);
@@ -87,6 +102,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {
     switch globals.shader_mode {
         case 1u: { return crt_effect(uv); }
         case 2u: { return smooth_effect(uv); }
+        case 3u: { return scanline_effect(uv); }
         default: { return textureSample(tex, samp, uv); }
     }
 }

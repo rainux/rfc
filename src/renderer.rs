@@ -30,6 +30,7 @@ impl Renderer {
         let shader_mode: u32 = match shader {
             "crt" => 1,
             "smooth" => 2,
+            "scanline" => 3,
             _ => 0,
         };
         let size = window.inner_size();
