@@ -34,7 +34,11 @@ impl Mapper for Mapper0 {
     fn ppu_read(&self, addr: u16) -> u8 {
         match addr {
             0x0000..=0x1FFF => {
-                if self.chr_rom.is_empty() { 0 } else { self.chr_rom[addr as usize] }
+                if self.chr_rom.is_empty() {
+                    0
+                } else {
+                    self.chr_rom[addr as usize]
+                }
             }
             _ => 0,
         }

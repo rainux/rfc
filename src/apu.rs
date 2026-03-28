@@ -5,8 +5,8 @@ const CPU_FREQUENCY: f64 = 1_789_773.0;
 const SAMPLE_RATE: f64 = 44100.0;
 
 const LENGTH_TABLE: [u8; 32] = [
-    10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96,
-    22, 192, 24, 72, 26, 16, 28, 32, 30,
+    10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96, 22,
+    192, 24, 72, 26, 16, 28, 32, 30,
 ];
 
 const NOISE_PERIODS: [u16; 16] = [
@@ -21,8 +21,8 @@ const DUTY_TABLE: [[u8; 8]; 4] = [
 ];
 
 const TRIANGLE_SEQUENCE: [u8; 32] = [
-    15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-    12, 13, 14, 15,
+    15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    13, 14, 15,
 ];
 
 // Frame counter divider: ~7457.5 CPU cycles per quarter frame
@@ -213,8 +213,7 @@ impl TriangleChannel {
     }
 
     fn output(&self) -> u8 {
-        if !self.enabled || self.length_counter == 0 || self.linear_counter == 0 || self.timer < 2
-        {
+        if !self.enabled || self.length_counter == 0 || self.linear_counter == 0 || self.timer < 2 {
             return 0;
         }
         TRIANGLE_SEQUENCE[self.sequencer_step as usize]
@@ -258,8 +257,7 @@ impl NoiseChannel {
         if self.timer_counter == 0 {
             self.timer_counter = self.timer_period;
             let feedback_bit = if self.mode { 6 } else { 1 };
-            let feedback =
-                (self.shift_register & 1) ^ ((self.shift_register >> feedback_bit) & 1);
+            let feedback = (self.shift_register & 1) ^ ((self.shift_register >> feedback_bit) & 1);
             self.shift_register >>= 1;
             self.shift_register |= feedback << 14;
         } else {

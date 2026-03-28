@@ -86,17 +86,16 @@ impl ApplicationHandler for App {
                             };
                             if let (Some(s), Some(window)) = (new_scale, self.window.as_ref()) {
                                 self.scale = s;
-                                let _ = window.request_inner_size(
-                                    winit::dpi::PhysicalSize::new(NES_WIDTH * s, NES_HEIGHT * s),
-                                );
+                                let _ = window.request_inner_size(winit::dpi::PhysicalSize::new(
+                                    NES_WIDTH * s,
+                                    NES_HEIGHT * s,
+                                ));
                                 return;
                             }
                         }
 
                         // Ctrl+Cmd+R: reset console
-                        if super_key && ctrl_key
-                            && key_code == winit::keyboard::KeyCode::KeyR
-                        {
+                        if super_key && ctrl_key && key_code == winit::keyboard::KeyCode::KeyR {
                             self.console.reset();
                             return;
                         }

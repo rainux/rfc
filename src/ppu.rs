@@ -165,8 +165,8 @@ impl Ppu {
     /// Convert a nametable address ($2000-$3EFF) to a VRAM index (0-2047)
     fn mirror_nametable_addr(&self, addr: u16) -> usize {
         let addr = (addr - 0x2000) & 0x0FFF; // Strip to 0-FFF range
-        let table = addr / 0x0400;            // Which nametable (0-3)
-        let offset = addr & 0x03FF;           // Offset within table
+        let table = addr / 0x0400; // Which nametable (0-3)
+        let offset = addr & 0x03FF; // Offset within table
 
         let base = match self.mirroring {
             Mirroring::Vertical => {
@@ -217,7 +217,7 @@ impl Ppu {
             2 => {
                 let result = (self.status & 0xE0) | (self.data_buffer & 0x1F);
                 self.status &= !0x80; // Clear VBlank flag
-                self.w = false;       // Reset write toggle
+                self.w = false; // Reset write toggle
                 result
             }
             // $2004: OAMDATA
@@ -425,7 +425,11 @@ impl Ppu {
             return;
         }
 
-        let pattern_base: u16 = if self.ctrl & 0x10 != 0 { 0x1000 } else { 0x0000 };
+        let pattern_base: u16 = if self.ctrl & 0x10 != 0 {
+            0x1000
+        } else {
+            0x0000
+        };
 
         // Extract scroll state from v register
         let fine_y = (self.v >> 12) & 7;
@@ -475,8 +479,7 @@ impl Ppu {
                 pattern_lo = self.ppu_read(pattern_addr, mapper);
                 pattern_hi = self.ppu_read(pattern_addr + 8, mapper);
 
-                let attr_addr =
-                    0x23C0 | (nametable << 10) | ((coarse_y / 4) << 3) | (coarse_x / 4);
+                let attr_addr = 0x23C0 | (nametable << 10) | ((coarse_y / 4) << 3) | (coarse_x / 4);
                 let attr_byte = self.ppu_read(attr_addr, mapper);
                 let palette_shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
                 palette_num = (attr_byte >> palette_shift) & 0x03;
@@ -631,7 +634,7 @@ mod tests {
         let val = ppu.read_register(0x2002, mapper.as_ref());
         assert_eq!(val, 0x80 | 0x1F);
         assert_eq!(ppu.status & 0x80, 0); // VBlank cleared
-        assert!(!ppu.w);                  // Latch reset
+        assert!(!ppu.w); // Latch reset
     }
 
     #[test]

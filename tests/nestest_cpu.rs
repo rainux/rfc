@@ -47,54 +47,60 @@ fn test_nestest_cpu() {
             return;
         }
 
-        let (exp_pc, exp_a, exp_x, exp_y, exp_p, exp_sp, exp_cyc) =
-            parse_log_line(expected_line);
+        let (exp_pc, exp_a, exp_x, exp_y, exp_p, exp_sp, exp_cyc) = parse_log_line(expected_line);
 
         // Compare state BEFORE executing the instruction
         assert_eq!(
-            cpu.pc, exp_pc,
+            cpu.pc,
+            exp_pc,
             "Line {}: PC mismatch: got 0x{:04X}, expected 0x{:04X}",
             i + 1,
             cpu.pc,
             exp_pc
         );
         assert_eq!(
-            cpu.a, exp_a,
+            cpu.a,
+            exp_a,
             "Line {}: A mismatch: got 0x{:02X}, expected 0x{:02X}",
             i + 1,
             cpu.a,
             exp_a
         );
         assert_eq!(
-            cpu.x, exp_x,
+            cpu.x,
+            exp_x,
             "Line {}: X mismatch: got 0x{:02X}, expected 0x{:02X}",
             i + 1,
             cpu.x,
             exp_x
         );
         assert_eq!(
-            cpu.y, exp_y,
+            cpu.y,
+            exp_y,
             "Line {}: Y mismatch: got 0x{:02X}, expected 0x{:02X}",
             i + 1,
             cpu.y,
             exp_y
         );
         assert_eq!(
-            cpu.status, exp_p,
+            cpu.status,
+            exp_p,
             "Line {}: P mismatch: got 0x{:02X}, expected 0x{:02X}",
             i + 1,
             cpu.status,
             exp_p
         );
         assert_eq!(
-            cpu.sp, exp_sp,
+            cpu.sp,
+            exp_sp,
             "Line {}: SP mismatch: got 0x{:02X}, expected 0x{:02X}",
             i + 1,
             cpu.sp,
             exp_sp
         );
         assert_eq!(
-            cpu.cycles, exp_cyc,
+            cpu.cycles,
+            exp_cyc,
             "Line {}: CYC mismatch: got {}, expected {}",
             i + 1,
             cpu.cycles,

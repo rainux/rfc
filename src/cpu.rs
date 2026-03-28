@@ -176,123 +176,535 @@ impl Cpu {
             // === Load/Store ===
 
             // LDA
-            0xA9 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); self.a = bus.read(addr); self.update_zero_and_negative(self.a); 2 }
-            0xA5 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); self.a = bus.read(addr); self.update_zero_and_negative(self.a); 3 }
-            0xB5 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); self.a = bus.read(addr); self.update_zero_and_negative(self.a); 4 }
-            0xAD => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); self.a = bus.read(addr); self.update_zero_and_negative(self.a); 4 }
-            0xBD => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX); self.a = bus.read(addr); self.update_zero_and_negative(self.a); 4 + pc as u8 }
-            0xB9 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY); self.a = bus.read(addr); self.update_zero_and_negative(self.a); 4 + pc as u8 }
-            0xA1 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX); self.a = bus.read(addr); self.update_zero_and_negative(self.a); 6 }
-            0xB1 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY); self.a = bus.read(addr); self.update_zero_and_negative(self.a); 5 + pc as u8 }
+            0xA9 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                self.a = bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                2
+            }
+            0xA5 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                self.a = bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                3
+            }
+            0xB5 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                self.a = bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4
+            }
+            0xAD => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                self.a = bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4
+            }
+            0xBD => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                self.a = bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4 + pc as u8
+            }
+            0xB9 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                self.a = bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4 + pc as u8
+            }
+            0xA1 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX);
+                self.a = bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                6
+            }
+            0xB1 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY);
+                self.a = bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                5 + pc as u8
+            }
 
             // LDX
-            0xA2 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); self.x = bus.read(addr); self.update_zero_and_negative(self.x); 2 }
-            0xA6 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); self.x = bus.read(addr); self.update_zero_and_negative(self.x); 3 }
-            0xB6 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageY); self.x = bus.read(addr); self.update_zero_and_negative(self.x); 4 }
-            0xAE => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); self.x = bus.read(addr); self.update_zero_and_negative(self.x); 4 }
-            0xBE => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY); self.x = bus.read(addr); self.update_zero_and_negative(self.x); 4 + pc as u8 }
+            0xA2 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                self.x = bus.read(addr);
+                self.update_zero_and_negative(self.x);
+                2
+            }
+            0xA6 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                self.x = bus.read(addr);
+                self.update_zero_and_negative(self.x);
+                3
+            }
+            0xB6 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageY);
+                self.x = bus.read(addr);
+                self.update_zero_and_negative(self.x);
+                4
+            }
+            0xAE => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                self.x = bus.read(addr);
+                self.update_zero_and_negative(self.x);
+                4
+            }
+            0xBE => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                self.x = bus.read(addr);
+                self.update_zero_and_negative(self.x);
+                4 + pc as u8
+            }
 
             // LDY
-            0xA0 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); self.y = bus.read(addr); self.update_zero_and_negative(self.y); 2 }
-            0xA4 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); self.y = bus.read(addr); self.update_zero_and_negative(self.y); 3 }
-            0xB4 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); self.y = bus.read(addr); self.update_zero_and_negative(self.y); 4 }
-            0xAC => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); self.y = bus.read(addr); self.update_zero_and_negative(self.y); 4 }
-            0xBC => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX); self.y = bus.read(addr); self.update_zero_and_negative(self.y); 4 + pc as u8 }
+            0xA0 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                self.y = bus.read(addr);
+                self.update_zero_and_negative(self.y);
+                2
+            }
+            0xA4 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                self.y = bus.read(addr);
+                self.update_zero_and_negative(self.y);
+                3
+            }
+            0xB4 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                self.y = bus.read(addr);
+                self.update_zero_and_negative(self.y);
+                4
+            }
+            0xAC => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                self.y = bus.read(addr);
+                self.update_zero_and_negative(self.y);
+                4
+            }
+            0xBC => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                self.y = bus.read(addr);
+                self.update_zero_and_negative(self.y);
+                4 + pc as u8
+            }
 
             // STA
-            0x85 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); bus.write(addr, self.a); 3 }
-            0x95 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); bus.write(addr, self.a); 4 }
-            0x8D => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); bus.write(addr, self.a); 4 }
-            0x9D => { let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX); bus.write(addr, self.a); 5 }
-            0x99 => { let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteY); bus.write(addr, self.a); 5 }
-            0x81 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX); bus.write(addr, self.a); 6 }
-            0x91 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectY); bus.write(addr, self.a); 6 }
+            0x85 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                bus.write(addr, self.a);
+                3
+            }
+            0x95 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                bus.write(addr, self.a);
+                4
+            }
+            0x8D => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                bus.write(addr, self.a);
+                4
+            }
+            0x9D => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                bus.write(addr, self.a);
+                5
+            }
+            0x99 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                bus.write(addr, self.a);
+                5
+            }
+            0x81 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX);
+                bus.write(addr, self.a);
+                6
+            }
+            0x91 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectY);
+                bus.write(addr, self.a);
+                6
+            }
 
             // STX
-            0x86 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); bus.write(addr, self.x); 3 }
-            0x96 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageY); bus.write(addr, self.x); 4 }
-            0x8E => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); bus.write(addr, self.x); 4 }
+            0x86 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                bus.write(addr, self.x);
+                3
+            }
+            0x96 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageY);
+                bus.write(addr, self.x);
+                4
+            }
+            0x8E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                bus.write(addr, self.x);
+                4
+            }
 
             // STY
-            0x84 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); bus.write(addr, self.y); 3 }
-            0x94 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); bus.write(addr, self.y); 4 }
-            0x8C => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); bus.write(addr, self.y); 4 }
+            0x84 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                bus.write(addr, self.y);
+                3
+            }
+            0x94 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                bus.write(addr, self.y);
+                4
+            }
+            0x8C => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                bus.write(addr, self.y);
+                4
+            }
 
             // === Arithmetic ===
 
             // ADC
-            0x69 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); let m = bus.read(addr); self.adc(m); 2 }
-            0x65 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let m = bus.read(addr); self.adc(m); 3 }
-            0x75 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let m = bus.read(addr); self.adc(m); 4 }
-            0x6D => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let m = bus.read(addr); self.adc(m); 4 }
-            0x7D => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX); let m = bus.read(addr); self.adc(m); 4 + pc as u8 }
-            0x79 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY); let m = bus.read(addr); self.adc(m); 4 + pc as u8 }
-            0x61 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX); let m = bus.read(addr); self.adc(m); 6 }
-            0x71 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY); let m = bus.read(addr); self.adc(m); 5 + pc as u8 }
+            0x69 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                let m = bus.read(addr);
+                self.adc(m);
+                2
+            }
+            0x65 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let m = bus.read(addr);
+                self.adc(m);
+                3
+            }
+            0x75 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let m = bus.read(addr);
+                self.adc(m);
+                4
+            }
+            0x6D => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let m = bus.read(addr);
+                self.adc(m);
+                4
+            }
+            0x7D => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let m = bus.read(addr);
+                self.adc(m);
+                4 + pc as u8
+            }
+            0x79 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                let m = bus.read(addr);
+                self.adc(m);
+                4 + pc as u8
+            }
+            0x61 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX);
+                let m = bus.read(addr);
+                self.adc(m);
+                6
+            }
+            0x71 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY);
+                let m = bus.read(addr);
+                self.adc(m);
+                5 + pc as u8
+            }
 
             // SBC
-            0xE9 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); let m = bus.read(addr); self.adc(!m); 2 }
-            0xE5 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let m = bus.read(addr); self.adc(!m); 3 }
-            0xF5 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let m = bus.read(addr); self.adc(!m); 4 }
-            0xED => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let m = bus.read(addr); self.adc(!m); 4 }
-            0xFD => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX); let m = bus.read(addr); self.adc(!m); 4 + pc as u8 }
-            0xF9 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY); let m = bus.read(addr); self.adc(!m); 4 + pc as u8 }
-            0xE1 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX); let m = bus.read(addr); self.adc(!m); 6 }
-            0xF1 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY); let m = bus.read(addr); self.adc(!m); 5 + pc as u8 }
+            0xE9 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                let m = bus.read(addr);
+                self.adc(!m);
+                2
+            }
+            0xE5 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let m = bus.read(addr);
+                self.adc(!m);
+                3
+            }
+            0xF5 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let m = bus.read(addr);
+                self.adc(!m);
+                4
+            }
+            0xED => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let m = bus.read(addr);
+                self.adc(!m);
+                4
+            }
+            0xFD => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let m = bus.read(addr);
+                self.adc(!m);
+                4 + pc as u8
+            }
+            0xF9 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                let m = bus.read(addr);
+                self.adc(!m);
+                4 + pc as u8
+            }
+            0xE1 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX);
+                let m = bus.read(addr);
+                self.adc(!m);
+                6
+            }
+            0xF1 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY);
+                let m = bus.read(addr);
+                self.adc(!m);
+                5 + pc as u8
+            }
 
             // === Compare ===
 
             // CMP
-            0xC9 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); let m = bus.read(addr); self.compare(self.a, m); 2 }
-            0xC5 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let m = bus.read(addr); self.compare(self.a, m); 3 }
-            0xD5 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let m = bus.read(addr); self.compare(self.a, m); 4 }
-            0xCD => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let m = bus.read(addr); self.compare(self.a, m); 4 }
-            0xDD => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX); let m = bus.read(addr); self.compare(self.a, m); 4 + pc as u8 }
-            0xD9 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY); let m = bus.read(addr); self.compare(self.a, m); 4 + pc as u8 }
-            0xC1 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX); let m = bus.read(addr); self.compare(self.a, m); 6 }
-            0xD1 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY); let m = bus.read(addr); self.compare(self.a, m); 5 + pc as u8 }
+            0xC9 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                let m = bus.read(addr);
+                self.compare(self.a, m);
+                2
+            }
+            0xC5 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let m = bus.read(addr);
+                self.compare(self.a, m);
+                3
+            }
+            0xD5 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let m = bus.read(addr);
+                self.compare(self.a, m);
+                4
+            }
+            0xCD => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let m = bus.read(addr);
+                self.compare(self.a, m);
+                4
+            }
+            0xDD => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let m = bus.read(addr);
+                self.compare(self.a, m);
+                4 + pc as u8
+            }
+            0xD9 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                let m = bus.read(addr);
+                self.compare(self.a, m);
+                4 + pc as u8
+            }
+            0xC1 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX);
+                let m = bus.read(addr);
+                self.compare(self.a, m);
+                6
+            }
+            0xD1 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY);
+                let m = bus.read(addr);
+                self.compare(self.a, m);
+                5 + pc as u8
+            }
 
             // CPX
-            0xE0 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); let m = bus.read(addr); self.compare(self.x, m); 2 }
-            0xE4 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let m = bus.read(addr); self.compare(self.x, m); 3 }
-            0xEC => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let m = bus.read(addr); self.compare(self.x, m); 4 }
+            0xE0 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                let m = bus.read(addr);
+                self.compare(self.x, m);
+                2
+            }
+            0xE4 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let m = bus.read(addr);
+                self.compare(self.x, m);
+                3
+            }
+            0xEC => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let m = bus.read(addr);
+                self.compare(self.x, m);
+                4
+            }
 
             // CPY
-            0xC0 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); let m = bus.read(addr); self.compare(self.y, m); 2 }
-            0xC4 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let m = bus.read(addr); self.compare(self.y, m); 3 }
-            0xCC => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let m = bus.read(addr); self.compare(self.y, m); 4 }
+            0xC0 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                let m = bus.read(addr);
+                self.compare(self.y, m);
+                2
+            }
+            0xC4 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let m = bus.read(addr);
+                self.compare(self.y, m);
+                3
+            }
+            0xCC => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let m = bus.read(addr);
+                self.compare(self.y, m);
+                4
+            }
 
             // === Logic ===
 
             // AND
-            0x29 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); self.a &= bus.read(addr); self.update_zero_and_negative(self.a); 2 }
-            0x25 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); self.a &= bus.read(addr); self.update_zero_and_negative(self.a); 3 }
-            0x35 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); self.a &= bus.read(addr); self.update_zero_and_negative(self.a); 4 }
-            0x2D => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); self.a &= bus.read(addr); self.update_zero_and_negative(self.a); 4 }
-            0x3D => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX); self.a &= bus.read(addr); self.update_zero_and_negative(self.a); 4 + pc as u8 }
-            0x39 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY); self.a &= bus.read(addr); self.update_zero_and_negative(self.a); 4 + pc as u8 }
-            0x21 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX); self.a &= bus.read(addr); self.update_zero_and_negative(self.a); 6 }
-            0x31 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY); self.a &= bus.read(addr); self.update_zero_and_negative(self.a); 5 + pc as u8 }
+            0x29 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                self.a &= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                2
+            }
+            0x25 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                self.a &= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                3
+            }
+            0x35 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                self.a &= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4
+            }
+            0x2D => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                self.a &= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4
+            }
+            0x3D => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                self.a &= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4 + pc as u8
+            }
+            0x39 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                self.a &= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4 + pc as u8
+            }
+            0x21 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX);
+                self.a &= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                6
+            }
+            0x31 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY);
+                self.a &= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                5 + pc as u8
+            }
 
             // ORA
-            0x09 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); self.a |= bus.read(addr); self.update_zero_and_negative(self.a); 2 }
-            0x05 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); self.a |= bus.read(addr); self.update_zero_and_negative(self.a); 3 }
-            0x15 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); self.a |= bus.read(addr); self.update_zero_and_negative(self.a); 4 }
-            0x0D => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); self.a |= bus.read(addr); self.update_zero_and_negative(self.a); 4 }
-            0x1D => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX); self.a |= bus.read(addr); self.update_zero_and_negative(self.a); 4 + pc as u8 }
-            0x19 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY); self.a |= bus.read(addr); self.update_zero_and_negative(self.a); 4 + pc as u8 }
-            0x01 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX); self.a |= bus.read(addr); self.update_zero_and_negative(self.a); 6 }
-            0x11 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY); self.a |= bus.read(addr); self.update_zero_and_negative(self.a); 5 + pc as u8 }
+            0x09 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                self.a |= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                2
+            }
+            0x05 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                self.a |= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                3
+            }
+            0x15 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                self.a |= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4
+            }
+            0x0D => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                self.a |= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4
+            }
+            0x1D => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                self.a |= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4 + pc as u8
+            }
+            0x19 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                self.a |= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4 + pc as u8
+            }
+            0x01 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX);
+                self.a |= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                6
+            }
+            0x11 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY);
+                self.a |= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                5 + pc as u8
+            }
 
             // EOR
-            0x49 => { let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate); self.a ^= bus.read(addr); self.update_zero_and_negative(self.a); 2 }
-            0x45 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); self.a ^= bus.read(addr); self.update_zero_and_negative(self.a); 3 }
-            0x55 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); self.a ^= bus.read(addr); self.update_zero_and_negative(self.a); 4 }
-            0x4D => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); self.a ^= bus.read(addr); self.update_zero_and_negative(self.a); 4 }
-            0x5D => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX); self.a ^= bus.read(addr); self.update_zero_and_negative(self.a); 4 + pc as u8 }
-            0x59 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY); self.a ^= bus.read(addr); self.update_zero_and_negative(self.a); 4 + pc as u8 }
-            0x41 => { let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX); self.a ^= bus.read(addr); self.update_zero_and_negative(self.a); 6 }
-            0x51 => { let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY); self.a ^= bus.read(addr); self.update_zero_and_negative(self.a); 5 + pc as u8 }
+            0x49 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Immediate);
+                self.a ^= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                2
+            }
+            0x45 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                self.a ^= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                3
+            }
+            0x55 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                self.a ^= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4
+            }
+            0x4D => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                self.a ^= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4
+            }
+            0x5D => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                self.a ^= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4 + pc as u8
+            }
+            0x59 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::AbsoluteY);
+                self.a ^= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                4 + pc as u8
+            }
+            0x41 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::IndirectX);
+                self.a ^= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                6
+            }
+            0x51 => {
+                let (addr, pc) = self.resolve_address(bus, AddressingMode::IndirectY);
+                self.a ^= bus.read(addr);
+                self.update_zero_and_negative(self.a);
+                5 + pc as u8
+            }
 
             // BIT
             0x24 => {
@@ -321,10 +733,42 @@ impl Cpu {
                 self.update_zero_and_negative(self.a);
                 2
             }
-            0x06 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let mut m = bus.read(addr); self.set_flag(CARRY, m & 0x80 != 0); m <<= 1; bus.write(addr, m); self.update_zero_and_negative(m); 5 }
-            0x16 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let mut m = bus.read(addr); self.set_flag(CARRY, m & 0x80 != 0); m <<= 1; bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0x0E => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let mut m = bus.read(addr); self.set_flag(CARRY, m & 0x80 != 0); m <<= 1; bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0x1E => { let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX); let mut m = bus.read(addr); self.set_flag(CARRY, m & 0x80 != 0); m <<= 1; bus.write(addr, m); self.update_zero_and_negative(m); 7 }
+            0x06 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let mut m = bus.read(addr);
+                self.set_flag(CARRY, m & 0x80 != 0);
+                m <<= 1;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                5
+            }
+            0x16 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let mut m = bus.read(addr);
+                self.set_flag(CARRY, m & 0x80 != 0);
+                m <<= 1;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0x0E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let mut m = bus.read(addr);
+                self.set_flag(CARRY, m & 0x80 != 0);
+                m <<= 1;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0x1E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let mut m = bus.read(addr);
+                self.set_flag(CARRY, m & 0x80 != 0);
+                m <<= 1;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                7
+            }
 
             // LSR
             0x4A => {
@@ -333,10 +777,42 @@ impl Cpu {
                 self.update_zero_and_negative(self.a);
                 2
             }
-            0x46 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let mut m = bus.read(addr); self.set_flag(CARRY, m & 0x01 != 0); m >>= 1; bus.write(addr, m); self.update_zero_and_negative(m); 5 }
-            0x56 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let mut m = bus.read(addr); self.set_flag(CARRY, m & 0x01 != 0); m >>= 1; bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0x4E => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let mut m = bus.read(addr); self.set_flag(CARRY, m & 0x01 != 0); m >>= 1; bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0x5E => { let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX); let mut m = bus.read(addr); self.set_flag(CARRY, m & 0x01 != 0); m >>= 1; bus.write(addr, m); self.update_zero_and_negative(m); 7 }
+            0x46 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let mut m = bus.read(addr);
+                self.set_flag(CARRY, m & 0x01 != 0);
+                m >>= 1;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                5
+            }
+            0x56 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let mut m = bus.read(addr);
+                self.set_flag(CARRY, m & 0x01 != 0);
+                m >>= 1;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0x4E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let mut m = bus.read(addr);
+                self.set_flag(CARRY, m & 0x01 != 0);
+                m >>= 1;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0x5E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let mut m = bus.read(addr);
+                self.set_flag(CARRY, m & 0x01 != 0);
+                m >>= 1;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                7
+            }
 
             // ROL
             0x2A => {
@@ -346,10 +822,46 @@ impl Cpu {
                 self.update_zero_and_negative(self.a);
                 2
             }
-            0x26 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let mut m = bus.read(addr); let old_carry = self.get_flag(CARRY) as u8; self.set_flag(CARRY, m & 0x80 != 0); m = (m << 1) | old_carry; bus.write(addr, m); self.update_zero_and_negative(m); 5 }
-            0x36 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let mut m = bus.read(addr); let old_carry = self.get_flag(CARRY) as u8; self.set_flag(CARRY, m & 0x80 != 0); m = (m << 1) | old_carry; bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0x2E => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let mut m = bus.read(addr); let old_carry = self.get_flag(CARRY) as u8; self.set_flag(CARRY, m & 0x80 != 0); m = (m << 1) | old_carry; bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0x3E => { let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX); let mut m = bus.read(addr); let old_carry = self.get_flag(CARRY) as u8; self.set_flag(CARRY, m & 0x80 != 0); m = (m << 1) | old_carry; bus.write(addr, m); self.update_zero_and_negative(m); 7 }
+            0x26 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let mut m = bus.read(addr);
+                let old_carry = self.get_flag(CARRY) as u8;
+                self.set_flag(CARRY, m & 0x80 != 0);
+                m = (m << 1) | old_carry;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                5
+            }
+            0x36 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let mut m = bus.read(addr);
+                let old_carry = self.get_flag(CARRY) as u8;
+                self.set_flag(CARRY, m & 0x80 != 0);
+                m = (m << 1) | old_carry;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0x2E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let mut m = bus.read(addr);
+                let old_carry = self.get_flag(CARRY) as u8;
+                self.set_flag(CARRY, m & 0x80 != 0);
+                m = (m << 1) | old_carry;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0x3E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let mut m = bus.read(addr);
+                let old_carry = self.get_flag(CARRY) as u8;
+                self.set_flag(CARRY, m & 0x80 != 0);
+                m = (m << 1) | old_carry;
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                7
+            }
 
             // ROR
             0x6A => {
@@ -359,51 +871,174 @@ impl Cpu {
                 self.update_zero_and_negative(self.a);
                 2
             }
-            0x66 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let mut m = bus.read(addr); let old_carry = self.get_flag(CARRY) as u8; self.set_flag(CARRY, m & 0x01 != 0); m = (m >> 1) | (old_carry << 7); bus.write(addr, m); self.update_zero_and_negative(m); 5 }
-            0x76 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let mut m = bus.read(addr); let old_carry = self.get_flag(CARRY) as u8; self.set_flag(CARRY, m & 0x01 != 0); m = (m >> 1) | (old_carry << 7); bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0x6E => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let mut m = bus.read(addr); let old_carry = self.get_flag(CARRY) as u8; self.set_flag(CARRY, m & 0x01 != 0); m = (m >> 1) | (old_carry << 7); bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0x7E => { let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX); let mut m = bus.read(addr); let old_carry = self.get_flag(CARRY) as u8; self.set_flag(CARRY, m & 0x01 != 0); m = (m >> 1) | (old_carry << 7); bus.write(addr, m); self.update_zero_and_negative(m); 7 }
+            0x66 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let mut m = bus.read(addr);
+                let old_carry = self.get_flag(CARRY) as u8;
+                self.set_flag(CARRY, m & 0x01 != 0);
+                m = (m >> 1) | (old_carry << 7);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                5
+            }
+            0x76 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let mut m = bus.read(addr);
+                let old_carry = self.get_flag(CARRY) as u8;
+                self.set_flag(CARRY, m & 0x01 != 0);
+                m = (m >> 1) | (old_carry << 7);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0x6E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let mut m = bus.read(addr);
+                let old_carry = self.get_flag(CARRY) as u8;
+                self.set_flag(CARRY, m & 0x01 != 0);
+                m = (m >> 1) | (old_carry << 7);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0x7E => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let mut m = bus.read(addr);
+                let old_carry = self.get_flag(CARRY) as u8;
+                self.set_flag(CARRY, m & 0x01 != 0);
+                m = (m >> 1) | (old_carry << 7);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                7
+            }
 
             // === Inc/Dec ===
 
             // INC
-            0xE6 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let m = bus.read(addr).wrapping_add(1); bus.write(addr, m); self.update_zero_and_negative(m); 5 }
-            0xF6 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let m = bus.read(addr).wrapping_add(1); bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0xEE => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let m = bus.read(addr).wrapping_add(1); bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0xFE => { let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX); let m = bus.read(addr).wrapping_add(1); bus.write(addr, m); self.update_zero_and_negative(m); 7 }
+            0xE6 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let m = bus.read(addr).wrapping_add(1);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                5
+            }
+            0xF6 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let m = bus.read(addr).wrapping_add(1);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0xEE => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let m = bus.read(addr).wrapping_add(1);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0xFE => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let m = bus.read(addr).wrapping_add(1);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                7
+            }
 
             // DEC
-            0xC6 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage); let m = bus.read(addr).wrapping_sub(1); bus.write(addr, m); self.update_zero_and_negative(m); 5 }
-            0xD6 => { let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX); let m = bus.read(addr).wrapping_sub(1); bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0xCE => { let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute); let m = bus.read(addr).wrapping_sub(1); bus.write(addr, m); self.update_zero_and_negative(m); 6 }
-            0xDE => { let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX); let m = bus.read(addr).wrapping_sub(1); bus.write(addr, m); self.update_zero_and_negative(m); 7 }
+            0xC6 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPage);
+                let m = bus.read(addr).wrapping_sub(1);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                5
+            }
+            0xD6 => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::ZeroPageX);
+                let m = bus.read(addr).wrapping_sub(1);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0xCE => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::Absolute);
+                let m = bus.read(addr).wrapping_sub(1);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                6
+            }
+            0xDE => {
+                let (addr, _) = self.resolve_address(bus, AddressingMode::AbsoluteX);
+                let m = bus.read(addr).wrapping_sub(1);
+                bus.write(addr, m);
+                self.update_zero_and_negative(m);
+                7
+            }
 
             // INX
-            0xE8 => { self.x = self.x.wrapping_add(1); self.update_zero_and_negative(self.x); 2 }
+            0xE8 => {
+                self.x = self.x.wrapping_add(1);
+                self.update_zero_and_negative(self.x);
+                2
+            }
             // INY
-            0xC8 => { self.y = self.y.wrapping_add(1); self.update_zero_and_negative(self.y); 2 }
+            0xC8 => {
+                self.y = self.y.wrapping_add(1);
+                self.update_zero_and_negative(self.y);
+                2
+            }
             // DEX
-            0xCA => { self.x = self.x.wrapping_sub(1); self.update_zero_and_negative(self.x); 2 }
+            0xCA => {
+                self.x = self.x.wrapping_sub(1);
+                self.update_zero_and_negative(self.x);
+                2
+            }
             // DEY
-            0x88 => { self.y = self.y.wrapping_sub(1); self.update_zero_and_negative(self.y); 2 }
+            0x88 => {
+                self.y = self.y.wrapping_sub(1);
+                self.update_zero_and_negative(self.y);
+                2
+            }
 
             // === Transfers ===
-            0xAA => { self.x = self.a; self.update_zero_and_negative(self.x); 2 } // TAX
-            0xA8 => { self.y = self.a; self.update_zero_and_negative(self.y); 2 } // TAY
-            0x8A => { self.a = self.x; self.update_zero_and_negative(self.a); 2 } // TXA
-            0x98 => { self.a = self.y; self.update_zero_and_negative(self.a); 2 } // TYA
-            0xBA => { self.x = self.sp; self.update_zero_and_negative(self.x); 2 } // TSX
-            0x9A => { self.sp = self.x; 2 } // TXS (no flags)
+            0xAA => {
+                self.x = self.a;
+                self.update_zero_and_negative(self.x);
+                2
+            } // TAX
+            0xA8 => {
+                self.y = self.a;
+                self.update_zero_and_negative(self.y);
+                2
+            } // TAY
+            0x8A => {
+                self.a = self.x;
+                self.update_zero_and_negative(self.a);
+                2
+            } // TXA
+            0x98 => {
+                self.a = self.y;
+                self.update_zero_and_negative(self.a);
+                2
+            } // TYA
+            0xBA => {
+                self.x = self.sp;
+                self.update_zero_and_negative(self.x);
+                2
+            } // TSX
+            0x9A => {
+                self.sp = self.x;
+                2
+            } // TXS (no flags)
 
             // === Branch ===
-            0x90 => { 2 + self.branch(bus, !self.get_flag(CARRY)) }   // BCC
-            0xB0 => { 2 + self.branch(bus, self.get_flag(CARRY)) }    // BCS
-            0xF0 => { 2 + self.branch(bus, self.get_flag(ZERO)) }     // BEQ
-            0xD0 => { 2 + self.branch(bus, !self.get_flag(ZERO)) }    // BNE
-            0x30 => { 2 + self.branch(bus, self.get_flag(NEGATIVE)) }  // BMI
-            0x10 => { 2 + self.branch(bus, !self.get_flag(NEGATIVE)) } // BPL
-            0x50 => { 2 + self.branch(bus, !self.get_flag(OVERFLOW)) } // BVC
-            0x70 => { 2 + self.branch(bus, self.get_flag(OVERFLOW)) }  // BVS
+            0x90 => 2 + self.branch(bus, !self.get_flag(CARRY)), // BCC
+            0xB0 => 2 + self.branch(bus, self.get_flag(CARRY)),  // BCS
+            0xF0 => 2 + self.branch(bus, self.get_flag(ZERO)),   // BEQ
+            0xD0 => 2 + self.branch(bus, !self.get_flag(ZERO)),  // BNE
+            0x30 => 2 + self.branch(bus, self.get_flag(NEGATIVE)), // BMI
+            0x10 => 2 + self.branch(bus, !self.get_flag(NEGATIVE)), // BPL
+            0x50 => 2 + self.branch(bus, !self.get_flag(OVERFLOW)), // BVC
+            0x70 => 2 + self.branch(bus, self.get_flag(OVERFLOW)), // BVS
 
             // === Jump/Call ===
 
@@ -444,23 +1079,57 @@ impl Cpu {
             // === Stack ===
 
             // PHA
-            0x48 => { self.push(bus, self.a); 3 }
+            0x48 => {
+                self.push(bus, self.a);
+                3
+            }
             // PHP
-            0x08 => { self.push(bus, self.status | BREAK | UNUSED); 3 }
+            0x08 => {
+                self.push(bus, self.status | BREAK | UNUSED);
+                3
+            }
             // PLA
-            0x68 => { self.a = self.pull(bus); self.update_zero_and_negative(self.a); 4 }
+            0x68 => {
+                self.a = self.pull(bus);
+                self.update_zero_and_negative(self.a);
+                4
+            }
             // PLP
-            0x28 => { let val = self.pull(bus); self.status = (val & !BREAK) | UNUSED; 4 }
+            0x28 => {
+                let val = self.pull(bus);
+                self.status = (val & !BREAK) | UNUSED;
+                4
+            }
 
             // === Flag ===
-
-            0x18 => { self.set_flag(CARRY, false); 2 }            // CLC
-            0x38 => { self.set_flag(CARRY, true); 2 }             // SEC
-            0x58 => { self.set_flag(INTERRUPT_DISABLE, false); 2 } // CLI
-            0x78 => { self.set_flag(INTERRUPT_DISABLE, true); 2 }  // SEI
-            0xD8 => { self.set_flag(DECIMAL, false); 2 }          // CLD
-            0xF8 => { self.set_flag(DECIMAL, true); 2 }           // SED
-            0xB8 => { self.set_flag(OVERFLOW, false); 2 }         // CLV
+            0x18 => {
+                self.set_flag(CARRY, false);
+                2
+            } // CLC
+            0x38 => {
+                self.set_flag(CARRY, true);
+                2
+            } // SEC
+            0x58 => {
+                self.set_flag(INTERRUPT_DISABLE, false);
+                2
+            } // CLI
+            0x78 => {
+                self.set_flag(INTERRUPT_DISABLE, true);
+                2
+            } // SEI
+            0xD8 => {
+                self.set_flag(DECIMAL, false);
+                2
+            } // CLD
+            0xF8 => {
+                self.set_flag(DECIMAL, true);
+                2
+            } // SED
+            0xB8 => {
+                self.set_flag(OVERFLOW, false);
+                2
+            } // CLV
 
             // === System ===
 
@@ -476,10 +1145,10 @@ impl Cpu {
                 7
             }
             // NOP
-            0xEA => { 2 }
+            0xEA => 2,
 
             // Unofficial/undefined opcodes - treat as NOP
-            _ => { 2 }
+            _ => 2,
         };
 
         self.cycles += cycles as u64;
@@ -639,11 +1308,8 @@ mod tests {
 
     #[test]
     fn test_indirect_y() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0x10),
-            (0x0010, 0x00),
-            (0x0011, 0x03),
-        ]);
+        let (mut cpu, mut bus) =
+            setup_cpu_with_ram(&[(0x0000, 0x10), (0x0010, 0x00), (0x0011, 0x03)]);
         cpu.pc = 0x0000;
         cpu.y = 0x05;
         let (addr, _) = cpu.resolve_address(&mut bus, AddressingMode::IndirectY);
@@ -652,11 +1318,8 @@ mod tests {
 
     #[test]
     fn test_indirect_x() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0x20),
-            (0x0024, 0x00),
-            (0x0025, 0x03),
-        ]);
+        let (mut cpu, mut bus) =
+            setup_cpu_with_ram(&[(0x0000, 0x20), (0x0024, 0x00), (0x0025, 0x03)]);
         cpu.pc = 0x0000;
         cpu.x = 0x04;
         let (addr, _) = cpu.resolve_address(&mut bus, AddressingMode::IndirectX);
@@ -736,9 +1399,7 @@ mod tests {
 
     #[test]
     fn test_lda_immediate() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0xA9), (0x0001, 0x42),
-        ]);
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0xA9), (0x0001, 0x42)]);
         cpu.pc = 0x0000;
         let cycles = cpu.step(&mut bus);
         assert_eq!(cpu.a, 0x42);
@@ -747,9 +1408,7 @@ mod tests {
 
     #[test]
     fn test_lda_zero_flag() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0xA9), (0x0001, 0x00),
-        ]);
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0xA9), (0x0001, 0x00)]);
         cpu.pc = 0x0000;
         cpu.step(&mut bus);
         assert!(cpu.get_flag(ZERO));
@@ -757,9 +1416,7 @@ mod tests {
 
     #[test]
     fn test_sta_zero_page() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0x85), (0x0001, 0x10),
-        ]);
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0x85), (0x0001, 0x10)]);
         cpu.pc = 0x0000;
         cpu.a = 0x42;
         let cycles = cpu.step(&mut bus);
@@ -769,9 +1426,8 @@ mod tests {
 
     #[test]
     fn test_jmp_absolute() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0x4C), (0x0001, 0x00), (0x0002, 0x06),
-        ]);
+        let (mut cpu, mut bus) =
+            setup_cpu_with_ram(&[(0x0000, 0x4C), (0x0001, 0x00), (0x0002, 0x06)]);
         cpu.pc = 0x0000;
         cpu.step(&mut bus);
         assert_eq!(cpu.pc, 0x0600);
@@ -779,9 +1435,7 @@ mod tests {
 
     #[test]
     fn test_adc_with_carry() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0x69), (0x0001, 0x01),
-        ]);
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0x69), (0x0001, 0x01)]);
         cpu.pc = 0x0000;
         cpu.a = 0xFF;
         cpu.step(&mut bus);
@@ -792,9 +1446,7 @@ mod tests {
 
     #[test]
     fn test_adc_overflow() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0x69), (0x0001, 0x50),
-        ]);
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0x69), (0x0001, 0x50)]);
         cpu.pc = 0x0000;
         cpu.a = 0x50;
         cpu.step(&mut bus);
@@ -815,9 +1467,7 @@ mod tests {
 
     #[test]
     fn test_bne_taken() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0xD0), (0x0001, 0x02),
-        ]);
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0xD0), (0x0001, 0x02)]);
         cpu.pc = 0x0000;
         cpu.set_flag(ZERO, false);
         let cycles = cpu.step(&mut bus);
@@ -827,9 +1477,7 @@ mod tests {
 
     #[test]
     fn test_bne_not_taken() {
-        let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0xD0), (0x0001, 0x02),
-        ]);
+        let (mut cpu, mut bus) = setup_cpu_with_ram(&[(0x0000, 0xD0), (0x0001, 0x02)]);
         cpu.pc = 0x0000;
         cpu.set_flag(ZERO, true);
         let cycles = cpu.step(&mut bus);
@@ -840,7 +1488,9 @@ mod tests {
     #[test]
     fn test_jsr_rts() {
         let (mut cpu, mut bus) = setup_cpu_with_ram(&[
-            (0x0000, 0x20), (0x0001, 0x00), (0x0002, 0x06),
+            (0x0000, 0x20),
+            (0x0001, 0x00),
+            (0x0002, 0x06),
             (0x0600, 0x60),
         ]);
         cpu.pc = 0x0000;
@@ -855,7 +1505,8 @@ mod tests {
     fn test_pha_pla() {
         let (mut cpu, mut bus) = setup_cpu_with_ram(&[
             (0x0000, 0x48), // PHA
-            (0x0001, 0xA9), (0x0002, 0x00), // LDA #0
+            (0x0001, 0xA9),
+            (0x0002, 0x00), // LDA #0
             (0x0003, 0x68), // PLA
         ]);
         cpu.pc = 0x0000;

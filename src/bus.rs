@@ -69,7 +69,8 @@ impl Bus {
             0x2000..=0x3FFF => {
                 let ppu_addr = 0x2000 + (addr & 0x0007);
                 if let Some(ref mut cart) = self.cartridge {
-                    self.ppu.write_register(ppu_addr, data, cart.mapper.as_mut());
+                    self.ppu
+                        .write_register(ppu_addr, data, cart.mapper.as_mut());
                 } else {
                     self.ppu.write_register(ppu_addr, data, &mut NullMapper);
                 }
@@ -133,9 +134,13 @@ impl Bus {
 struct NullMapper;
 
 impl crate::mapper::Mapper for NullMapper {
-    fn cpu_read(&self, _addr: u16) -> u8 { 0 }
+    fn cpu_read(&self, _addr: u16) -> u8 {
+        0
+    }
     fn cpu_write(&mut self, _addr: u16, _data: u8) {}
-    fn ppu_read(&self, _addr: u16) -> u8 { 0 }
+    fn ppu_read(&self, _addr: u16) -> u8 {
+        0
+    }
     fn ppu_write(&mut self, _addr: u16, _data: u8) {}
 }
 

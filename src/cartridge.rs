@@ -1,6 +1,6 @@
+use crate::mapper::Mapper;
 use crate::mapper::mapper0::Mapper0;
 use crate::mapper::mapper2::Mapper2;
-use crate::mapper::Mapper;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Mirroring {
