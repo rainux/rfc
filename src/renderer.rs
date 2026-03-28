@@ -23,6 +23,11 @@ pub struct Renderer {
     bind_group: wgpu::BindGroup,
     globals_buffer: wgpu::Buffer,
     shader_mode: u32,
+
+    // egui integration
+    egui_ctx: egui::Context,
+    egui_winit: egui_winit::State,
+    egui_renderer: egui_wgpu::Renderer,
 }
 
 impl Renderer {
@@ -40,7 +45,7 @@ impl Renderer {
             ..Default::default()
         });
 
-        let surface = instance.create_surface(window).unwrap();
+        let surface = instance.create_surface(window.clone()).unwrap();
 
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::default(),
@@ -210,6 +215,18 @@ impl Renderer {
             cache: None,
         });
 
+        // Initialize egui
+        let egui_ctx = egui::Context::default();
+        let egui_winit = egui_winit::State::new(
+            egui_ctx.clone(),
+            egui_ctx.viewport_id(),
+            &window,
+            Some(window.scale_factor() as f32),
+            None,
+            None,
+        );
+        let egui_renderer = egui_wgpu::Renderer::new(&device, surface_format, None, 1, false);
+
         Self {
             surface,
             device,
@@ -220,6 +237,9 @@ impl Renderer {
             bind_group,
             globals_buffer,
             shader_mode,
+            egui_ctx,
+            egui_winit,
+            egui_renderer,
         }
     }
 
@@ -236,6 +256,108 @@ impl Renderer {
             self.queue
                 .write_buffer(&self.globals_buffer, 0, bytemuck::bytes_of(&globals));
         }
+    }
+
+    /// Let egui process a winit event. Returns true if egui consumed it.
+    pub fn handle_event(&mut self, window: &Window, event: &winit::event::WindowEvent) -> bool {
+        self.egui_winit.on_window_event(window, event).consumed
+    }
+
+    /// Render the egui UI to the surface.
+    pub fn render_egui<F>(&mut self, window: &Window, ui_fn: F)
+    where
+        F: FnMut(&egui::Context),
+    {
+        let raw_input = self.egui_winit.take_egui_input(window);
+        let full_output = self.egui_ctx.run(raw_input, ui_fn);
+
+        self.egui_winit
+            .handle_platform_output(window, full_output.platform_output);
+
+        let paint_jobs = self
+            .egui_ctx
+            .tessellate(full_output.shapes, full_output.pixels_per_point);
+
+        let screen_descriptor = egui_wgpu::ScreenDescriptor {
+            size_in_pixels: [self.config.width, self.config.height],
+            pixels_per_point: full_output.pixels_per_point,
+        };
+
+        let output = match self.surface.get_current_texture() {
+            Ok(t) => t,
+            Err(wgpu::SurfaceError::Lost) => {
+                self.surface.configure(&self.device, &self.config);
+                return;
+            }
+            Err(wgpu::SurfaceError::OutOfMemory) => {
+                log::error!("Out of GPU memory");
+                return;
+            }
+            Err(e) => {
+                log::warn!("Surface error: {:?}", e);
+                return;
+            }
+        };
+
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("egui Render Encoder"),
+            });
+
+        // Update egui textures
+        for (id, delta) in &full_output.textures_delta.set {
+            self.egui_renderer
+                .update_texture(&self.device, &self.queue, *id, delta);
+        }
+
+        // Update buffers
+        self.egui_renderer.update_buffers(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            &paint_jobs,
+            &screen_descriptor,
+        );
+
+        // Render pass
+        {
+            let mut render_pass = encoder
+                .begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("egui Render Pass"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.03,
+                                g: 0.03,
+                                b: 0.12,
+                                a: 1.0,
+                            }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                })
+                .forget_lifetime();
+
+            self.egui_renderer
+                .render(&mut render_pass, &paint_jobs, &screen_descriptor);
+        }
+
+        // Free textures
+        for id in &full_output.textures_delta.free {
+            self.egui_renderer.free_texture(id);
+        }
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
     }
 
     pub fn render(&self, frame_buffer: &[u8]) {

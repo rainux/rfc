@@ -5,7 +5,6 @@ pub mod cartridge;
 pub mod config;
 pub mod console;
 pub mod cpu;
-pub mod font;
 pub mod joypad;
 pub mod mapper;
 pub mod menu;

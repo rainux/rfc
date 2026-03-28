@@ -1,15 +1,5 @@
 use std::path::PathBuf;
 
-use crate::font::draw_text;
-
-/// Frame buffer dimensions matching the NES output.
-const WIDTH: usize = 256;
-const HEIGHT: usize = 240;
-const BUF_SIZE: usize = WIDTH * HEIGHT * 4;
-
-/// Maximum number of visible ROM entries on screen.
-const VISIBLE_ROWS: usize = 18;
-
 /// A ROM entry: display name and path on disk.
 #[derive(Clone, Debug)]
 pub struct RomEntry {
@@ -43,7 +33,7 @@ pub fn scan_roms(dir: &str) -> Vec<RomEntry> {
 pub struct Menu {
     pub roms: Vec<RomEntry>,
     pub selected: usize,
-    frame_buffer: Vec<u8>,
+    pub should_launch: bool,
 }
 
 impl Menu {
@@ -51,7 +41,7 @@ impl Menu {
         Self {
             roms,
             selected: 0,
-            frame_buffer: vec![0u8; BUF_SIZE],
+            should_launch: false,
         }
     }
 
@@ -72,68 +62,85 @@ impl Menu {
         self.roms.get(self.selected)
     }
 
-    /// Render the menu into the internal frame buffer and return a reference.
-    pub fn render(&mut self) -> &[u8] {
-        let buf = &mut self.frame_buffer;
+    /// Render the egui menu UI.
+    pub fn ui(&mut self, ctx: &egui::Context) {
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(8, 8, 30)))
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(20.0);
+                    ui.heading(
+                        egui::RichText::new("RFC \u{2014} NES Emulator")
+                            .size(24.0)
+                            .color(egui::Color32::from_rgb(236, 238, 236)),
+                    );
+                    ui.add_space(10.0);
+                });
 
-        // Dark blue background (NES palette inspired)
-        for pixel in buf.chunks_exact_mut(4) {
-            pixel[0] = 0;
-            pixel[1] = 0;
-            pixel[2] = 40;
-            pixel[3] = 255;
-        }
+                ui.separator();
 
-        // Colours
-        let white: [u8; 3] = [236, 238, 236];
-        let grey: [u8; 3] = [152, 150, 152];
-        let blue: [u8; 3] = [76, 154, 236];
-
-        // Title
-        draw_text(buf, "RFC - NES EMULATOR", 40, 16, white);
-
-        if self.roms.is_empty() {
-            draw_text(buf, "NO ROMS FOUND", 64, 100, grey);
-            draw_text(buf, "PUT .NES FILES IN", 48, 120, grey);
-            draw_text(buf, "THE ROMS DIRECTORY", 44, 132, grey);
-        } else {
-            // Scrolling window
-            let visible_start = if self.selected >= VISIBLE_ROWS {
-                self.selected - VISIBLE_ROWS + 1
-            } else {
-                0
-            };
-
-            for (vi, i) in (visible_start..).take(VISIBLE_ROWS).enumerate() {
-                if i >= self.roms.len() {
-                    break;
-                }
-                let y = 36 + vi * 10;
-                let color = if i == self.selected { white } else { grey };
-
-                // Truncate long names to fit the screen (max ~29 chars with prefix)
-                let name = &self.roms[i].name;
-                let max_chars = 28;
-                let display_name = if name.len() > max_chars {
-                    &name[..max_chars]
+                if self.roms.is_empty() {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(40.0);
+                        ui.label(
+                            egui::RichText::new("No ROM files found")
+                                .size(16.0)
+                                .color(egui::Color32::GRAY),
+                        );
+                    });
                 } else {
-                    name.as_str()
-                };
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        for (i, rom) in self.roms.iter().enumerate() {
+                            let is_selected = i == self.selected;
+                            let text =
+                                egui::RichText::new(&rom.name)
+                                    .size(16.0)
+                                    .color(if is_selected {
+                                        egui::Color32::WHITE
+                                    } else {
+                                        egui::Color32::from_rgb(152, 150, 152)
+                                    });
 
-                if i == self.selected {
-                    let text = format!("> {display_name}");
-                    draw_text(buf, &text, 16, y, color);
-                } else {
-                    let text = format!("  {display_name}",);
-                    draw_text(buf, &text, 16, y, color);
+                            let response = ui.selectable_label(is_selected, text);
+                            if response.clicked() {
+                                self.selected = i;
+                                self.should_launch = true;
+                            }
+                            if response.double_clicked() {
+                                self.selected = i;
+                                self.should_launch = true;
+                            }
+                        }
+                    });
                 }
+
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                    ui.add_space(10.0);
+                    ui.label(
+                        egui::RichText::new(
+                            "\u{2191}/\u{2193} Navigate  |  Enter: Play  |  Esc: Quit",
+                        )
+                        .size(12.0)
+                        .color(egui::Color32::from_rgb(76, 154, 236)),
+                    );
+                });
+            });
+
+        // Handle keyboard navigation in egui
+        ctx.input(|i| {
+            if i.key_pressed(egui::Key::ArrowUp) && self.selected > 0 {
+                self.selected -= 1;
             }
-        }
-
-        // Instructions at the bottom
-        draw_text(buf, "UP/DOWN:SELECT ENTER:PLAY", 16, 226, blue);
-
-        buf
+            if i.key_pressed(egui::Key::ArrowDown)
+                && !self.roms.is_empty()
+                && self.selected + 1 < self.roms.len()
+            {
+                self.selected += 1;
+            }
+            if i.key_pressed(egui::Key::Enter) && !self.roms.is_empty() {
+                self.should_launch = true;
+            }
+        });
     }
 }
 
@@ -179,24 +186,6 @@ mod tests {
         assert_eq!(menu.selected, 0);
         menu.move_up(); // Should clamp
         assert_eq!(menu.selected, 0);
-    }
-
-    #[test]
-    fn menu_render_does_not_panic() {
-        let roms = vec![RomEntry {
-            name: "Test ROM".into(),
-            path: PathBuf::from("test.nes"),
-        }];
-        let mut menu = Menu::new(roms);
-        let buf = menu.render();
-        assert_eq!(buf.len(), 256 * 240 * 4);
-    }
-
-    #[test]
-    fn menu_empty_render() {
-        let mut menu = Menu::new(Vec::new());
-        let buf = menu.render();
-        assert_eq!(buf.len(), 256 * 240 * 4);
     }
 
     #[test]

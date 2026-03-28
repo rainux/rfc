@@ -92,7 +92,7 @@ impl ApplicationHandler for App {
 
         let size = winit::dpi::PhysicalSize::new(NES_WIDTH * self.scale, NES_HEIGHT * self.scale);
         let attrs = Window::default_attributes()
-            .with_title("rfc — NES Emulator")
+            .with_title("rfc \u{2014} NES Emulator")
             .with_inner_size(size)
             .with_min_inner_size(winit::dpi::PhysicalSize::new(NES_WIDTH, NES_HEIGHT));
 
@@ -103,44 +103,87 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        // Let egui handle events when in Menu state
+        if let EmulatorState::Menu(_) = &self.state {
+            if let Some(renderer) = self.renderer.as_mut() {
+                if let Some(window) = self.window.as_ref() {
+                    let consumed = renderer.handle_event(window, &event);
+                    // If egui consumed the event, skip further processing
+                    // (but still handle CloseRequested and Resized)
+                    match &event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::Resized(_)
+                        | WindowEvent::RedrawRequested => {}
+                        WindowEvent::KeyboardInput { .. } if !consumed => {}
+                        _ => {
+                            if consumed {
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         match event {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
             }
             WindowEvent::Resized(physical_size) => {
                 if let Some(renderer) = self.renderer.as_mut() {
-                    // Maintain 16:15 aspect ratio (256:240)
-                    let aspect = 256.0 / 240.0_f64;
-                    let w = physical_size.width as f64;
-                    let h = physical_size.height as f64;
+                    match &self.state {
+                        EmulatorState::Playing { .. } => {
+                            // Maintain 16:15 aspect ratio (256:240) only during gameplay
+                            let aspect = 256.0 / 240.0_f64;
+                            let w = physical_size.width as f64;
+                            let h = physical_size.height as f64;
 
-                    let (new_w, new_h) = if w / h > aspect {
-                        // Too wide — shrink width to match height
-                        ((h * aspect).round() as u32, physical_size.height)
-                    } else {
-                        // Too tall — shrink height to match width
-                        (physical_size.width, (w / aspect).round() as u32)
-                    };
+                            let (new_w, new_h) = if w / h > aspect {
+                                ((h * aspect).round() as u32, physical_size.height)
+                            } else {
+                                (physical_size.width, (w / aspect).round() as u32)
+                            };
 
-                    let constrained = winit::dpi::PhysicalSize::new(new_w, new_h);
-                    if constrained != physical_size {
-                        if let Some(window) = self.window.as_ref() {
-                            let _ = window.request_inner_size(constrained);
+                            let constrained = winit::dpi::PhysicalSize::new(new_w, new_h);
+                            if constrained != physical_size {
+                                if let Some(window) = self.window.as_ref() {
+                                    let _ = window.request_inner_size(constrained);
+                                }
+                            }
+                            renderer.resize(constrained);
+                        }
+                        EmulatorState::Menu(_) => {
+                            // Allow free resizing for the menu
+                            renderer.resize(physical_size);
                         }
                     }
-                    renderer.resize(constrained);
                 }
             }
             WindowEvent::RedrawRequested => {
-                let frame = match &mut self.state {
-                    EmulatorState::Menu(menu) => menu.render(),
+                match &mut self.state {
+                    EmulatorState::Menu(menu) => {
+                        if let (Some(renderer), Some(window)) =
+                            (self.renderer.as_mut(), self.window.as_ref())
+                        {
+                            renderer.render_egui(window, |ctx| {
+                                menu.ui(ctx);
+                            });
+                        }
+                        // Check if a ROM should be launched (set by egui keyboard/click)
+                        if let EmulatorState::Menu(menu) = &self.state {
+                            if menu.should_launch {
+                                if let Some(entry) = menu.selected_rom().cloned() {
+                                    self.launch_rom(&entry.path);
+                                }
+                            }
+                        }
+                    }
                     EmulatorState::Playing { console, .. } => {
                         console.step_frame();
-                        console.frame_buffer()
+                        if let Some(renderer) = self.renderer.as_ref() {
+                            renderer.render(console.frame_buffer());
+                        }
                     }
-                };
-                if let Some(renderer) = self.renderer.as_ref() {
-                    renderer.render(frame);
                 }
                 if let Some(window) = self.window.as_ref() {
                     window.request_redraw();
@@ -157,16 +200,9 @@ impl ApplicationHandler for App {
                         EmulatorState::Menu(menu) => {
                             if pressed {
                                 match key_code {
-                                    KeyCode::ArrowUp => menu.move_up(),
-                                    KeyCode::ArrowDown => menu.move_down(),
-                                    KeyCode::Enter => {
-                                        if let Some(entry) = menu.selected_rom().cloned() {
-                                            self.launch_rom(&entry.path);
-                                        }
-                                    }
                                     KeyCode::Escape => event_loop.exit(),
                                     _ => {
-                                        // Also handle configured joypad keys for navigation
+                                        // Handle configured joypad keys for navigation
                                         for &(kc, ref action, player) in &self.key_map.mappings {
                                             if kc == key_code && player == 1 {
                                                 match action {
@@ -180,7 +216,8 @@ impl ApplicationHandler for App {
                                                         if let Some(entry) =
                                                             menu.selected_rom().cloned()
                                                         {
-                                                            self.launch_rom(&entry.path);
+                                                            menu.should_launch = true;
+                                                            let _ = entry; // launch handled in RedrawRequested
                                                         }
                                                     }
                                                     _ => {}

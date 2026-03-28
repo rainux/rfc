@@ -22,6 +22,7 @@ The result is a working NES emulator with instruction-level accuracy. Basic grap
 - **Mappers**: Mapper 0 (NROM) and Mapper 2 (UxROM)
 - **Input**: Configurable keyboard mapping via TOML config file, with turbo (auto-fire) buttons
 - **Rendering**: Pure Rust graphics stack (winit + wgpu), no SDL dependency
+- **Game Selection**: egui-based menu with Unicode/Chinese filename support
 
 ## Tested Games
 
