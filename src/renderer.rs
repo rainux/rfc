@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use wgpu::util::DeviceExt;
 use winit::window::Window;
 
 const NES_WIDTH: u32 = 256;
@@ -12,6 +13,7 @@ pub struct Renderer {
     pipeline: wgpu::RenderPipeline,
     texture: wgpu::Texture,
     bind_group: wgpu::BindGroup,
+    globals_buffer: wgpu::Buffer,
 }
 
 impl Renderer {
@@ -86,6 +88,12 @@ impl Renderer {
             ..Default::default()
         });
 
+        let globals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Globals Buffer"),
+            contents: bytemuck::cast_slice(&[size.width.max(1) as f32, size.height.max(1) as f32]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Texture Bind Group Layout"),
             entries: &[
@@ -105,6 +113,16 @@ impl Renderer {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
         });
 
@@ -119,6 +137,10 @@ impl Renderer {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: globals_buffer.as_entire_binding(),
                 },
             ],
         });
@@ -176,6 +198,7 @@ impl Renderer {
             pipeline,
             texture,
             bind_group,
+            globals_buffer,
         }
     }
 
@@ -184,6 +207,11 @@ impl Renderer {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.queue.write_buffer(
+                &self.globals_buffer,
+                0,
+                bytemuck::cast_slice(&[new_size.width as f32, new_size.height as f32]),
+            );
         }
     }
 

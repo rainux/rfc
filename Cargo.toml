@@ -11,6 +11,7 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 cpal = "0.15"
 dirs = "6"
+bytemuck = { version = "1", features = ["derive"] }
 log = "0.4"
 env_logger = "0.11"
 
