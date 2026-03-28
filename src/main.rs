@@ -10,7 +10,7 @@ use winit::window::{Window, WindowId};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rfc::bus::Bus;
 use rfc::cartridge::Cartridge;
-use rfc::config::{Config, HotkeyMap, KeyMap};
+use rfc::config::{ButtonAction, Config, HotkeyMap, KeyMap};
 use rfc::console::Console;
 use rfc::joypad::Button;
 use rfc::menu::{Menu, RomEntry, scan_roms};
@@ -38,6 +38,7 @@ struct App {
     modifiers: winit::keyboard::ModifiersState,
     /// Cached ROM list so we can return to the menu without re-scanning.
     rom_list: Vec<RomEntry>,
+    turbo_rate: u8,
 }
 
 impl App {
@@ -61,6 +62,8 @@ impl App {
         bus.load_cartridge(cartridge);
         let mut console = Console::new(bus);
         console.reset();
+        console.bus.joypad1.turbo_rate = self.turbo_rate;
+        console.bus.joypad2.turbo_rate = self.turbo_rate;
 
         let audio_buffer = console.bus.apu.audio_buffer.clone();
         let audio_stream = setup_audio(audio_buffer);
@@ -164,12 +167,16 @@ impl ApplicationHandler for App {
                                     KeyCode::Escape => event_loop.exit(),
                                     _ => {
                                         // Also handle configured joypad keys for navigation
-                                        for &(kc, button, player) in &self.key_map.mappings {
+                                        for &(kc, ref action, player) in &self.key_map.mappings {
                                             if kc == key_code && player == 1 {
-                                                match button {
-                                                    Button::Up => menu.move_up(),
-                                                    Button::Down => menu.move_down(),
-                                                    Button::Start => {
+                                                match action {
+                                                    ButtonAction::Normal(Button::Up) => {
+                                                        menu.move_up()
+                                                    }
+                                                    ButtonAction::Normal(Button::Down) => {
+                                                        menu.move_down()
+                                                    }
+                                                    ButtonAction::Normal(Button::Start) => {
                                                         if let Some(entry) =
                                                             menu.selected_rom().cloned()
                                                         {
@@ -226,12 +233,19 @@ impl ApplicationHandler for App {
                             }
 
                             // Joypad input (press and release)
-                            for &(kc, button, player) in &self.key_map.mappings {
+                            for &(kc, ref action, player) in &self.key_map.mappings {
                                 if kc == key_code {
-                                    match player {
-                                        1 => console.bus.joypad1.set_button(button, pressed),
-                                        2 => console.bus.joypad2.set_button(button, pressed),
-                                        _ => {}
+                                    let joypad = match player {
+                                        1 => &mut console.bus.joypad1,
+                                        2 => &mut console.bus.joypad2,
+                                        _ => continue,
+                                    };
+                                    match action {
+                                        ButtonAction::Normal(button) => {
+                                            joypad.set_button(*button, pressed);
+                                        }
+                                        ButtonAction::TurboA => joypad.set_turbo_a(pressed),
+                                        ButtonAction::TurboB => joypad.set_turbo_b(pressed),
                                     }
                                 }
                             }
@@ -253,6 +267,7 @@ fn main() {
 
     let scale = config.display.scale;
     let shader = config.display.shader.clone();
+    let turbo_rate = config.input.turbo_rate.max(1);
     let key_map = KeyMap::from_config(&config.input);
     let hotkey_map = HotkeyMap::from_config(&config.hotkeys);
     let rom_path_config = config.rom.path.clone();
@@ -269,6 +284,8 @@ fn main() {
         bus.load_cartridge(cartridge);
         let mut console = Console::new(bus);
         console.reset();
+        console.bus.joypad1.turbo_rate = turbo_rate;
+        console.bus.joypad2.turbo_rate = turbo_rate;
         let audio_buffer = console.bus.apu.audio_buffer.clone();
         let audio_stream = setup_audio(audio_buffer);
         EmulatorState::Playing {
@@ -291,6 +308,7 @@ fn main() {
         hotkey_map,
         modifiers: winit::keyboard::ModifiersState::empty(),
         rom_list,
+        turbo_rate,
     };
 
     event_loop.run_app(&mut app).unwrap();

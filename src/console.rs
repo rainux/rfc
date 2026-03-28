@@ -34,6 +34,8 @@ impl Console {
 
     /// Run until one frame is complete
     pub fn step_frame(&mut self) {
+        self.bus.joypad1.update_turbo();
+        self.bus.joypad2.update_turbo();
         self.bus.clear_frame_complete();
         loop {
             // Handle DMA cycles

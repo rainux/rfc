@@ -14,6 +14,11 @@ pub struct Joypad {
     strobe: bool,
     button_index: u8,
     button_state: u8,
+    // Turbo state
+    turbo_a: bool,
+    turbo_b: bool,
+    turbo_counter: u8,
+    pub turbo_rate: u8,
 }
 
 impl Joypad {
@@ -22,6 +27,37 @@ impl Joypad {
             strobe: false,
             button_index: 0,
             button_state: 0,
+            turbo_a: false,
+            turbo_b: false,
+            turbo_counter: 0,
+            turbo_rate: 2,
+        }
+    }
+
+    pub fn set_turbo_a(&mut self, held: bool) {
+        self.turbo_a = held;
+        if !held {
+            self.set_button(Button::A, false);
+        }
+    }
+
+    pub fn set_turbo_b(&mut self, held: bool) {
+        self.turbo_b = held;
+        if !held {
+            self.set_button(Button::B, false);
+        }
+    }
+
+    /// Call once per frame to update turbo state
+    pub fn update_turbo(&mut self) {
+        self.turbo_counter = (self.turbo_counter + 1) % (self.turbo_rate * 2);
+        let turbo_on = self.turbo_counter < self.turbo_rate;
+
+        if self.turbo_a {
+            self.set_button(Button::A, turbo_on);
+        }
+        if self.turbo_b {
+            self.set_button(Button::B, turbo_on);
         }
     }
 

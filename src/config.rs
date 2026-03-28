@@ -114,6 +114,7 @@ pub struct RomConfig {
 pub struct InputConfig {
     pub player1: PlayerInput,
     pub player2: PlayerInput,
+    pub turbo_rate: u8,
 }
 
 #[derive(Deserialize, Clone)]
@@ -127,6 +128,8 @@ pub struct PlayerInput {
     pub b: String,
     pub select: String,
     pub start: String,
+    pub turbo_a: String,
+    pub turbo_b: String,
 }
 
 impl Default for Config {
@@ -162,6 +165,7 @@ impl Default for InputConfig {
         Self {
             player1: PlayerInput::default_p1(),
             player2: PlayerInput::default_p2(),
+            turbo_rate: 2,
         }
     }
 }
@@ -177,6 +181,8 @@ impl PlayerInput {
             b: "J".into(),
             select: "G".into(),
             start: "H".into(),
+            turbo_a: "I".into(),
+            turbo_b: "U".into(),
         }
     }
 
@@ -190,6 +196,8 @@ impl PlayerInput {
             b: "Numpad1".into(),
             select: "Numpad5".into(),
             start: "Numpad6".into(),
+            turbo_a: "Numpad4".into(),
+            turbo_b: "Numpad3".into(),
         }
     }
 }
@@ -297,59 +305,64 @@ pub fn key_name_to_keycode(name: &str) -> Option<KeyCode> {
     }
 }
 
-/// Build a mapping from KeyCode to (Button, player) for quick lookup
+#[derive(Debug, Clone, Copy)]
+pub enum ButtonAction {
+    Normal(Button),
+    TurboA,
+    TurboB,
+}
+
+/// Build a mapping from KeyCode to (ButtonAction, player) for quick lookup
 pub struct KeyMap {
-    pub mappings: Vec<(KeyCode, Button, u8)>, // (key, button, player 1 or 2)
+    pub mappings: Vec<(KeyCode, ButtonAction, u8)>, // (key, action, player 1 or 2)
 }
 
 impl KeyMap {
     pub fn from_config(config: &InputConfig) -> Self {
         let mut mappings = Vec::new();
 
-        let buttons: &[(&str, Button)] = &[
-            ("up", Button::Up),
-            ("down", Button::Down),
-            ("left", Button::Left),
-            ("right", Button::Right),
-            ("a", Button::A),
-            ("b", Button::B),
-            ("select", Button::Select),
-            ("start", Button::Start),
-        ];
+        // Helper to add mappings for one player
+        let add_player =
+            |mappings: &mut Vec<(KeyCode, ButtonAction, u8)>, input: &PlayerInput, player: u8| {
+                let normal_buttons: &[(&str, Button)] = &[
+                    ("up", Button::Up),
+                    ("down", Button::Down),
+                    ("left", Button::Left),
+                    ("right", Button::Right),
+                    ("a", Button::A),
+                    ("b", Button::B),
+                    ("select", Button::Select),
+                    ("start", Button::Start),
+                ];
 
-        for &(field, button) in buttons {
-            let key_name = match field {
-                "up" => &config.player1.up,
-                "down" => &config.player1.down,
-                "left" => &config.player1.left,
-                "right" => &config.player1.right,
-                "a" => &config.player1.a,
-                "b" => &config.player1.b,
-                "select" => &config.player1.select,
-                "start" => &config.player1.start,
-                _ => continue,
-            };
-            if let Some(kc) = key_name_to_keycode(key_name) {
-                mappings.push((kc, button, 1));
-            }
-        }
+                for &(field, button) in normal_buttons {
+                    let key_name = match field {
+                        "up" => &input.up,
+                        "down" => &input.down,
+                        "left" => &input.left,
+                        "right" => &input.right,
+                        "a" => &input.a,
+                        "b" => &input.b,
+                        "select" => &input.select,
+                        "start" => &input.start,
+                        _ => continue,
+                    };
+                    if let Some(kc) = key_name_to_keycode(key_name) {
+                        mappings.push((kc, ButtonAction::Normal(button), player));
+                    }
+                }
 
-        for &(field, button) in buttons {
-            let key_name = match field {
-                "up" => &config.player2.up,
-                "down" => &config.player2.down,
-                "left" => &config.player2.left,
-                "right" => &config.player2.right,
-                "a" => &config.player2.a,
-                "b" => &config.player2.b,
-                "select" => &config.player2.select,
-                "start" => &config.player2.start,
-                _ => continue,
+                // Turbo buttons
+                if let Some(kc) = key_name_to_keycode(&input.turbo_a) {
+                    mappings.push((kc, ButtonAction::TurboA, player));
+                }
+                if let Some(kc) = key_name_to_keycode(&input.turbo_b) {
+                    mappings.push((kc, ButtonAction::TurboB, player));
+                }
             };
-            if let Some(kc) = key_name_to_keycode(key_name) {
-                mappings.push((kc, button, 2));
-            }
-        }
+
+        add_player(&mut mappings, &config.player1, 1);
+        add_player(&mut mappings, &config.player2, 2);
 
         Self { mappings }
     }

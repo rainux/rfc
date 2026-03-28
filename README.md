@@ -20,7 +20,7 @@ The result is a working NES emulator with instruction-level accuracy. Basic grap
 - **PPU**: Scanline-based rendering with background tiles, sprites, scrolling, and sprite-0 hit detection
 - **APU**: Pulse, triangle, and noise channels with audio output via cpal
 - **Mappers**: Mapper 0 (NROM) and Mapper 2 (UxROM)
-- **Input**: Configurable keyboard mapping via TOML config file
+- **Input**: Configurable keyboard mapping via TOML config file, with turbo (auto-fire) buttons
 - **Rendering**: Pure Rust graphics stack (winit + wgpu), no SDL dependency
 
 ## Tested Games
@@ -41,6 +41,8 @@ cargo run -- <rom_file.nes>
 | D-pad | E / S / D / F |
 | A | K |
 | B | J |
+| Turbo A | I |
+| Turbo B | U |
 | Select | G |
 | Start | H |
 
@@ -64,6 +66,9 @@ scale = 3
 [rom]
 path = "./roms"
 
+[input]
+turbo_rate = 2  # Toggle every N frames (lower = faster, default 2)
+
 [input.player1]
 up = "E"
 down = "D"
@@ -71,6 +76,8 @@ left = "S"
 right = "F"
 a = "K"
 b = "J"
+turbo_a = "I"
+turbo_b = "U"
 select = "G"
 start = "H"
 ```
