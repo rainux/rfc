@@ -14,6 +14,10 @@ Subsequent features (Mapper 1/3/4, egui game browser, display shaders, turbo but
 - [Design spec](docs/superpowers/specs/2026-03-28-nes-emulator-design.md) — architecture, components, and milestones
 - [Implementation plan](docs/superpowers/plans/2026-03-28-nes-emulator.md) — 19 tasks with step-by-step instructions
 
+### Demo (v0.1.0)
+
+https://github.com/user-attachments/assets/c62c0133-5073-4655-a58a-8423bfaa9735
+
 ## Features
 
 - **CPU**: Full 6502 instruction set (151 official opcodes), verified against nestest (5003 lines pass)
@@ -46,31 +50,32 @@ On startup (without a ROM argument), a game browser scans the configured ROM dir
 
 ### In-Game Controls (Player 1)
 
-| NES | Keyboard |
-|-----|----------|
-| D-pad | E / S / D / F |
-| A | K |
-| B | J |
-| Turbo A | I |
-| Turbo B | U |
-| Select | G |
-| Start | H |
+| NES     | Keyboard      |
+| ------- | ------------- |
+| D-pad   | E / S / D / F |
+| A       | K             |
+| B       | J             |
+| Turbo A | I             |
+| Turbo B | U             |
+| Select  | G             |
+| Start   | H             |
 
 ### Shortcuts
 
-| Action | Key |
-|--------|-----|
-| Scale 2x | Cmd+1 |
-| Scale 4x | Cmd+2 |
-| Scale 6x | Cmd+3 |
-| Reset console | Ctrl+Cmd+R |
-| Exit to menu | Esc (with confirmation, Y/N) |
+| Action        | Key                          |
+| ------------- | ---------------------------- |
+| Scale 2x      | Cmd+1                        |
+| Scale 4x      | Cmd+2                        |
+| Scale 6x      | Cmd+3                        |
+| Reset console | Ctrl+Cmd+R                   |
+| Exit to menu  | Esc (with confirmation, Y/N) |
 
 All shortcuts are configurable via `rfc.toml`. See [`rfc.sample.toml`](rfc.sample.toml) for the full reference.
 
 ### Configuration
 
 Copy `rfc.sample.toml` to `rfc.toml` and edit. Config is loaded from:
+
 1. `./rfc.toml`
 2. `~/.config/rfc/rfc.toml`
 3. Built-in defaults
